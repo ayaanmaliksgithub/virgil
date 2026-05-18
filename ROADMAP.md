@@ -21,8 +21,12 @@ as their PRs land.
 ### Distribution + DX
 
 - [ ] VS Code extension (inline annotations + chat sidebar)
-- [ ] Reusable GitHub Action workflow (no GitHub App needed)
-- [ ] `pipx install virgil` on PyPI; Homebrew once stable
+- [x] Reusable GitHub Action workflow (no GitHub App needed) — composite
+      action at repo root, copy-paste example at
+      `examples/github-action-virgil.yml`
+- [~] `pipx install virgil` on PyPI — metadata + OIDC publish workflow
+      shipped; pending one-time Trusted Publisher registration on PyPI.
+      Homebrew once stable.
 - [ ] Static docs site (`docs/`)
 - [ ] Sample audit on first launch — NodeGoat pre-baked
 

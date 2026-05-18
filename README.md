@@ -81,7 +81,7 @@ without running a scan.
 ```bash
 # from the web UI:   http://localhost:3000  →  paste a GitHub URL
 # from the CLI:
-pip install ./apps/cli                       # or pipx install ./apps/cli
+pip install virgil                            # or pipx install virgil
 virgil scan .                                 # current dir
 virgil scan --url https://github.com/OWASP/NodeGoat
 virgil findings <audit-id>
@@ -93,6 +93,37 @@ Exit codes match what CI wants:
 ```bash
 virgil scan . --fail-on critical              # exits 1 if any Critical lands
 ```
+
+## Run it on every PR (GitHub Action)
+
+Drop this in `.github/workflows/virgil.yml`:
+
+```yaml
+name: Virgil
+on: [pull_request, push]
+permissions:
+  contents: read
+  pull-requests: write     # for the sticky comment
+  security-events: write   # for SARIF → GitHub Code Scanning
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: ayaanmaliksgithub/virgil@v0.1.0
+        with:
+          fail-on: critical
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}  # optional
+```
+
+The Action spins up the Virgil stack on the runner, scans the PR in
+PR-mode (only flagging findings on lines the PR touches), posts a
+sticky comment with the ranked priority queue, and uploads SARIF for
+GitHub's Code Scanning tab. ~3 minutes on a cold run; faster after.
+A full example with all inputs is in
+[examples/github-action-virgil.yml](examples/github-action-virgil.yml).
 
 ## What works today
 

@@ -963,10 +963,14 @@ ordered by leverage; later items can assume earlier ones are done.
    open file, "explain this finding" sidebar calling the chat
    endpoint, status-bar item for the latest audit on this branch.
    Talks to the same `localhost:8000` API the CLI uses.
-2. [ ] **GitHub Action** (no GitHub App). A reusable Action workflow
-   that spins up the stack ephemerally, scans the PR's `HEAD` against
-   `BASE`, and posts a sticky comment with the priority queue. Zero
-   external service — runs entirely in the user's CI.
+2. [x] **GitHub Action** (no GitHub App). Composite action at the
+   repo root (`action.yml`); other repos use it with
+   `uses: ayaanmaliksgithub/virgil@v0.1.0`. Spins up the compose stack
+   on the runner, builds the scanner image, waits for `/healthz`, runs
+   `virgil scan` with PR-mode SHAs auto-detected from the event
+   payload, posts a sticky priority-queue comment, uploads SARIF as an
+   artifact. Copy-paste example in
+   [`examples/github-action-virgil.yml`](examples/github-action-virgil.yml).
 3. [ ] **SBOM generation** (CycloneDX + SPDX). Trivy already supports
    `trivy sbom`; we just need to invoke + persist the artifact as a
    `reports` row. One-day item.
@@ -992,8 +996,13 @@ ordered by leverage; later items can assume earlier ones are done.
 10. [ ] **Sample audit on first launch.** New install seeds the DB
     with a pre-baked OWASP NodeGoat audit so `localhost:3000` is
     never empty on first visit.
-11. [ ] **`pipx install virgil` distribution.** Publish the
-    CLI to PyPI; document Homebrew once it's stable.
+11. [~] **`pipx install virgil` distribution.** CLI `pyproject.toml`
+    has full PyPI metadata (classifiers, urls, keywords, README) and a
+    `.github/workflows/publish-cli.yml` workflow publishes on tagged
+    release via PyPI Trusted Publishing (OIDC, no API token). One-time
+    Trusted Publisher registration on PyPI is the only remaining step
+    before the first `pip install virgil` works. Homebrew formula
+    follows once the PyPI package has stabilized.
 12. [ ] **Documentation site.** A simple static site (`docs/`) with
     install, scanner tour, FAQ, screenshot gallery. README does
     double-duty today; a docs site reduces friction for new visitors.

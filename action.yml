@@ -1,0 +1,223 @@
+name: "Virgil"
+description: "Run a Virgil security audit on the calling repo. Self-hosted, sandboxed scanners + LLM triage + SARIF export."
+author: "Virgil contributors"
+branding:
+  icon: "shield"
+  color: "yellow"
+
+inputs:
+  path:
+    description: "Path to scan, relative to the caller's checkout. Defaults to the repo root."
+    required: false
+    default: "."
+  fail-on:
+    description: "Exit non-zero when findings at this severity (or higher) are present. One of: never, critical, high, medium, low."
+    required: false
+    default: "critical"
+  anthropic-api-key:
+    description: "Optional Anthropic API key for LLM-enriched explanations, priority ranking, and chat. The audit runs deterministically without it (clustering, reachability, priority queue all work with the no-LLM fallback)."
+    required: false
+    default: ""
+  openai-api-key:
+    description: "Optional OpenAI API key, as an alternative to anthropic-api-key. If both are set, anthropic-api-key wins."
+    required: false
+    default: ""
+  output-sarif:
+    description: "Path to write the SARIF artifact. Set to '' to skip."
+    required: false
+    default: "virgil-findings.sarif"
+  comment-pr:
+    description: "Post a sticky comment with the priority queue on the PR. Requires pull_request event."
+    required: false
+    default: "true"
+  virgil-ref:
+    description: "Git ref of the Virgil project to use. Defaults to the action's own ref."
+    required: false
+    default: ""
+
+outputs:
+  audit-id:
+    description: "The Virgil audit ID for this run. Use for follow-up CLI calls."
+    value: ${{ steps.scan.outputs.audit-id }}
+  sarif-path:
+    description: "Filesystem path to the SARIF artifact, if output-sarif was set."
+    value: ${{ steps.scan.outputs.sarif-path }}
+  exit-status:
+    description: "Final exit code from `virgil scan` (0 = under threshold, 1 = over, 2 = audit failed, 3 = api unreachable)."
+    value: ${{ steps.scan.outputs.exit-status }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check out Virgil
+      uses: actions/checkout@v4
+      with:
+        repository: ayaanmaliksgithub/virgil
+        ref: ${{ inputs.virgil-ref || github.action_ref || 'main' }}
+        path: .virgil-stack
+
+    - name: Set up Python (for the CLI)
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: pip
+
+    - name: Install Virgil CLI from source
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install ./.virgil-stack/apps/cli
+
+    - name: Write .env
+      shell: bash
+      working-directory: .virgil-stack
+      run: |
+        cp .env.example .env
+        # Anthropic wins if both keys are set.
+        if [ -n "${{ inputs.anthropic-api-key }}" ]; then
+          {
+            echo "LLM_PROVIDER=anthropic"
+            echo "ANTHROPIC_API_KEY=${{ inputs.anthropic-api-key }}"
+          } >> .env
+        elif [ -n "${{ inputs.openai-api-key }}" ]; then
+          {
+            echo "LLM_PROVIDER=openai"
+            echo "OPENAI_API_KEY=${{ inputs.openai-api-key }}"
+          } >> .env
+        else
+          # Force the deterministic fallbacks if no key is set.
+          echo "LLM_PROVIDER=null" >> .env
+        fi
+
+    - name: Bring up the Virgil stack
+      shell: bash
+      working-directory: .virgil-stack
+      run: |
+        echo "::group::compose build"
+        docker compose build api worker web
+        echo "::endgroup::"
+
+        echo "::group::scanner-image build (~3 min cold)"
+        docker compose up scanner-image-builder
+        echo "::endgroup::"
+
+        echo "::group::start core services"
+        docker compose up -d postgres redis minio
+        # Wait for Postgres to accept connections before running migrations.
+        for i in $(seq 1 30); do
+          if docker compose exec -T postgres pg_isready -U audit -d audit >/dev/null 2>&1; then
+            echo "postgres ready (attempt $i)"; break
+          fi
+          sleep 2
+        done
+        docker compose run --rm api alembic upgrade head
+        docker compose up -d api worker
+        echo "::endgroup::"
+
+        echo "::group::wait for API healthz"
+        for i in $(seq 1 60); do
+          if curl -sf http://localhost:8000/healthz >/dev/null 2>&1; then
+            echo "api ready (attempt $i)"; break
+          fi
+          sleep 2
+        done
+        echo "::endgroup::"
+
+    - name: Run scan
+      id: scan
+      shell: bash
+      env:
+        VIRGIL_API: http://localhost:8000
+      run: |
+        set +e
+        # Compute PR-mode args when this is a pull_request event.
+        pr_args=""
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          pr_args="--base-sha ${{ github.event.pull_request.base.sha }} --head-sha ${{ github.event.pull_request.head.sha }}"
+        fi
+
+        virgil scan "${{ inputs.path }}" \
+          --fail-on "${{ inputs.fail-on }}" \
+          $pr_args 2>&1 | tee virgil-run.log
+        exit_status=${PIPESTATUS[0]}
+        echo "exit-status=$exit_status" >> "$GITHUB_OUTPUT"
+
+        # Best-effort extract of the audit-id from the run log header.
+        audit_id=$(grep -oE 'audit_id[[:space:]]+[0-9a-f-]{36}' virgil-run.log | awk '{print $2}' | head -1 || true)
+        echo "audit-id=$audit_id" >> "$GITHUB_OUTPUT"
+
+        # SARIF export, if requested + we have an audit id.
+        if [ -n "${{ inputs.output-sarif }}" ] && [ -n "$audit_id" ]; then
+          virgil report "$audit_id" --format sarif -o "${{ inputs.output-sarif }}" || true
+          echo "sarif-path=${{ inputs.output-sarif }}" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Re-raise the scan's exit code so the workflow surfaces it. The
+        # comment + SARIF upload steps below still run because they're
+        # in separate composite steps.
+        exit $exit_status
+
+    - name: Upload SARIF artifact
+      if: always() && steps.scan.outputs.sarif-path != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: virgil-sarif
+        path: ${{ steps.scan.outputs.sarif-path }}
+        if-no-files-found: warn
+
+    - name: Render and post PR comment
+      if: always() && inputs.comment-pr == 'true' && github.event_name == 'pull_request' && steps.scan.outputs.audit-id != ''
+      uses: actions/github-script@v7
+      env:
+        AUDIT_ID: ${{ steps.scan.outputs.audit-id }}
+        EXIT_STATUS: ${{ steps.scan.outputs.exit-status }}
+      with:
+        script: |
+          const fs = require('fs');
+          const auditId = process.env.AUDIT_ID;
+          const exitStatus = process.env.EXIT_STATUS;
+          const log = fs.existsSync('virgil-run.log') ? fs.readFileSync('virgil-run.log', 'utf8') : '';
+
+          // Strip ANSI color codes so the comment is readable.
+          const clean = log.replace(/\[[0-9;]*m/g, '');
+
+          // Pull just the summary + priority queue blocks. Heuristic: stop at
+          // the findings table to keep the comment focused on action items.
+          const priorityIdx = clean.indexOf('fix.this_week');
+          const summaryIdx  = clean.search(/CRIT\s+HIGH\s+MED/);
+          const start = Math.min(...[summaryIdx, priorityIdx].filter(i => i >= 0));
+          const slice = start >= 0 ? clean.slice(start, start + 4000) : clean.slice(0, 4000);
+
+          const status = exitStatus === '0'
+            ? ':white_check_mark: scan clean'
+            : exitStatus === '1' ? ':warning: findings exceed threshold'
+            : ':x: audit failed';
+
+          const body = [
+            `<!-- virgil-bot -->`,
+            `### Virgil audit · ${status}`,
+            ``,
+            `\`\`\``,
+            slice,
+            `\`\`\``,
+            ``,
+            `<sub>audit id <code>${auditId}</code> · [open the audit locally](http://localhost:3000/audits/${auditId})</sub>`,
+          ].join('\n');
+
+          // Sticky comment: find an existing comment authored by github-actions
+          // with our marker and update it; else create a new one.
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+          const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+          const existing = comments.find(c => c.body && c.body.includes('<!-- virgil-bot -->'));
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
+    - name: Tear down the stack
+      if: always()
+      shell: bash
+      working-directory: .virgil-stack
+      run: docker compose down -v --remove-orphans || true

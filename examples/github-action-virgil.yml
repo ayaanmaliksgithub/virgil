@@ -1,0 +1,64 @@
+# Drop this file into `.github/workflows/virgil.yml` in any repo you want to
+# audit. Replace `v0.1.0` with the latest Virgil tag.
+#
+# What this does on every PR:
+#   1. Checks out your code.
+#   2. Spins up the Virgil stack on the runner (~3 min first run, cached after).
+#   3. Scans only the lines changed by the PR (PR-mode).
+#   4. Posts a sticky comment with the priority queue.
+#   5. Uploads the SARIF artifact (so GitHub Code Scanning ingests it).
+#   6. Fails the workflow if any Critical finding lands.
+
+name: Virgil security audit
+
+on:
+  pull_request:
+    branches: [main]
+  # Also run on the default branch so the SARIF gets ingested into GitHub
+  # Security tab on merge — that's where Dependabot-style PR feedback lives.
+  push:
+    branches: [main]
+  # Manual trigger for re-scans without a new commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write     # for the sticky comment
+  security-events: write   # for the SARIF upload to Code Scanning
+
+jobs:
+  scan:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out caller's repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # PR-mode needs both base and head SHAs in history
+
+      - name: Run Virgil
+        id: virgil
+        uses: ayaanmaliksgithub/virgil@v0.1.0
+        with:
+          # Path to scan. Defaults to repo root.
+          path: "."
+          # Threshold that fails the workflow. One of: never, critical, high,
+          # medium, low. `critical` is a sensible default — relax to `high` if
+          # you want to be stricter, or `never` if you only want the report.
+          fail-on: "critical"
+          # Optional LLM key. Without it, the priority list falls back to a
+          # deterministic ranker (severity × KEV × instance count) — clustering,
+          # reachability, fix-the-helper, and SARIF export all still work.
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Sticky PR comment with the ranked priority queue. Set to "false"
+          # to silence.
+          comment-pr: "true"
+          # Where to write the SARIF artifact. Set to "" to skip.
+          output-sarif: "virgil-findings.sarif"
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always() && steps.virgil.outputs.sarif-path != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.virgil.outputs.sarif-path }}
+          category: virgil
