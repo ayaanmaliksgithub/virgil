@@ -19,6 +19,31 @@ export async function loadAudit(id: string): Promise<Audit> {
   }
 }
 
+/**
+ * UUID of the OWASP NodeGoat demo audit that `app.seed` loads on a fresh DB.
+ * Stable so the frontend can link to it without round-tripping the API.
+ */
+export const SEED_DEMO_AUDIT_ID = "00000000-0000-0000-0000-000000000001";
+
+/**
+ * Pick the right demo target for the landing page.
+ *
+ * If the API has the seeded demo audit, link to the real DB-backed
+ * `/audits/<uuid>` so the user gets the full backend (chat, report routes,
+ * exports). If the API is down or the seed was disabled, fall back to the
+ * frontend-only `/audits/demo` route which renders against `lib/demo.ts`.
+ *
+ * Best-effort: a hung API on a homepage render shouldn't 500 the landing.
+ */
+export async function resolveDemoAuditHref(): Promise<string> {
+  try {
+    await getAudit(SEED_DEMO_AUDIT_ID);
+    return `/audits/${SEED_DEMO_AUDIT_ID}`;
+  } catch {
+    return "/audits/demo";
+  }
+}
+
 export async function loadFindings(
   id: string,
   opts: ListFindingsOptions = {}

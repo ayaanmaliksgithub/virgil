@@ -29,7 +29,11 @@ as their PRs land.
       Package name is `virgilhq` (bare `virgil` was already taken on PyPI);
       CLI binary is still `virgil`. Homebrew once stable.
 - [ ] Static docs site (`docs/`)
-- [ ] Sample audit on first launch — NodeGoat pre-baked
+- [x] Sample audit on first launch — NodeGoat pre-baked. API entrypoint
+      runs migrations + seed; idempotent via sentinel UUID; opt-out via
+      `SEED_DEMO_AUDIT=false`. 15 findings, priority queue, fix-the-helper
+      hints, pre-baked chat transcript. `docker compose up` is now one
+      command (scanner-image-builder is a worker dependency).
 
 ### Analysis depth
 

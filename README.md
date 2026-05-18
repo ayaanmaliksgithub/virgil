@@ -67,14 +67,18 @@ git clone https://github.com/ayaanmaliksgithub/virgil
 cd virgil
 cp .env.example .env
 
-docker compose build
-docker compose up scanner-image-builder      # one-shot: bakes Semgrep+Trivy+Gitleaks
-docker compose run --rm api alembic upgrade head
-docker compose up -d api worker web postgres redis minio
+docker compose up -d
 ```
 
-Open <http://localhost:3000>. Hit `/audits/demo` to see the UI populated
-without running a scan.
+That's it. One command. On a cold cache the first run takes ~3–5 minutes
+to bake the scanner image (Semgrep + Trivy + Gitleaks pre-warmed). After
+that, every restart is seconds.
+
+Open <http://localhost:3000>. You'll land on a populated UI — a seeded
+OWASP NodeGoat audit with 15 findings, ranked priority queue,
+fix-the-helper hints, and a pre-baked chat transcript. The API container
+runs migrations and the seed automatically on first boot; set
+`SEED_DEMO_AUDIT=false` to skip the seed.
 
 ### Submit a scan
 

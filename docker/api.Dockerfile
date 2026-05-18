@@ -28,5 +28,12 @@ COPY apps/api /srv/apps/api
 WORKDIR /srv/apps/api
 RUN uv pip install --system --no-cache .
 
+# Entrypoint runs alembic + the demo-audit seed before launching uvicorn,
+# so a fresh `docker compose up` lands on a populated UI with no manual
+# `alembic upgrade head` step. The seed is idempotent and disable-able via
+# `SEED_DEMO_AUDIT=false`.
+COPY docker/entrypoint-api.sh /usr/local/bin/entrypoint-api.sh
+RUN chmod +x /usr/local/bin/entrypoint-api.sh
+
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-api.sh"]

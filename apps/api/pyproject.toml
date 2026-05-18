@@ -30,6 +30,10 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+# Hatchling defaults include non-.py files in packaged directories, but the
+# seed-data JSON is load-bearing for first-launch UX — pin it explicitly so
+# a future packaging change can't silently strip it.
+include = ["app/**/*.py", "app/seed_data/*.json"]
 
 [tool.uv.sources]
 audit-core = { path = "../../packages/audit_core", editable = true }
