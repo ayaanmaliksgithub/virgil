@@ -1,0 +1,65 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+*.pid
+*.log
+build/
+dist/
+venv/
+.venv/
+env/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.npm
+.eslintcache
+yarn-error.log
+npm-debug.log*
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Audit runtime artifacts
+/var/
+audit-*.pdf
+audit-*.md
+audit-*.json
+audit-*.sarif
+audit-*.csv
+audit-*.xlsx
+
+# Local docker / state
+docker/data/
+*.sqlite
+*.sqlite3
+
+# Secrets — defense in depth (we never want a real .env or token file
+# committed; .env.example is the only env file that should be tracked).
+*.pem
+*.key
+*.p12
+.github-token
+secrets/

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "virgil"
+version = "0.1.0"
+description = "Command-line client for Virgil — the security audit platform."
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+  "rich>=13.7",
+  "requests>=2.31",
+]
+
+[project.scripts]
+virgil = "cli.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cli"]

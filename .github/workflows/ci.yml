@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel previous in-flight runs on the same PR — saves Actions minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    name: Python — unit suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install editable packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -e packages/audit_core \
+            -e apps/api \
+            -e apps/worker \
+            -e apps/cli
+          # test extras
+          python -m pip install pytest httpx pytest-asyncio openpyxl
+
+      - name: Run unit tests
+        run: |
+          # API + e2e tests need a real Postgres / Docker — gated here so
+          # the unit suite stays fast and runnable without secrets.
+          pytest tests/ --ignore=tests/api --ignore=tests/e2e -q
+
+  web-typecheck:
+    name: Web — typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install deps
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+  api-integration-tests:
+    name: Python — API integration (Postgres)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_audit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install editable packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -e packages/audit_core \
+            -e apps/api \
+            -e apps/worker
+          python -m pip install pytest httpx pytest-asyncio
+
+      - name: Run API integration tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://test:test@localhost:5432/test_audit
+        run: pytest tests/api -q

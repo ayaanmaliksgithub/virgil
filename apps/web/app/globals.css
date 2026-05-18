@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --hex-gutter-w: 92px;
+  }
+
+  html, body {
+    background: #0B0B0A;
+    color: #D9D3C2;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-feature-settings: "ss01", "ss02", "kern", "calt", "zero";
+    font-variant-ligatures: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+    letter-spacing: 0.005em;
+  }
+
+  /* CRT scanlines — fixed, low opacity, never animate the lines themselves */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: theme("backgroundImage.scanlines");
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    animation: scanjitter 7s ease-in-out infinite;
+  }
+
+  /* Faint warm vignette — replaces the editorial grain. Lives behind scanlines. */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%),
+      theme("backgroundImage.grain");
+    background-size: auto, 160px 160px;
+    mix-blend-mode: multiply;
+    opacity: 0.7;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  ::selection { background: #E8C26A; color: #0B0B0A; }
+
+  /* Native scrollbars look better when stripped to the bone */
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: #27241F; }
+  *::-webkit-scrollbar-thumb:hover { background: #383530; }
+}
+
+@layer components {
+  /* ─── primitives ─── */
+
+  .term-label {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px; line-height: 14px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #5E5A52;
+  }
+
+  .term-label::before { content: "// "; color: #3F3C36; }
+
+  .addr {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    color: #5E5A52;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+
+  /* Box-drawing border around panels — visually evokes ncurses windows */
+  .panel {
+    position: relative;
+    background: #121211;
+    border: 1px solid #27241F;
+  }
+  .panel-title {
+    position: absolute;
+    top: -7px;
+    left: 12px;
+    padding: 0 6px;
+    background: #0B0B0A;
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #B4AE9F;
+  }
+  .panel-title::before { content: "┤ "; color: #383530; }
+  .panel-title::after  { content: " ├"; color: #383530; }
+
+  /* Severity / status — bracketed tags, the dominant chip in this aesthetic */
+  .tag {
+    display: inline-flex; align-items: center;
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: currentColor;
+    white-space: nowrap;
+  }
+  .tag::before { content: "["; padding-right: 6px; color: currentColor; opacity: 0.55; }
+  .tag::after  { content: "]"; padding-left: 6px;  color: currentColor; opacity: 0.55; }
+
+  /* Redacted bytes — looks like a censored hex run */
+  .redacted {
+    display: inline-block;
+    padding: 0 6px;
+    color: #5E5A52;
+    background: repeating-linear-gradient(90deg,
+      #27241F 0, #27241F 7px,
+      #121211 7px, #121211 14px);
+    border: 1px solid #27241F;
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+  }
+
+  /* Tabular figures for any numeric column */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Blinking cursor */
+  .term-cursor::after {
+    content: "▍";
+    margin-left: 4px;
+    color: #E8C26A;
+    animation: cursor 1.05s steps(2) infinite;
+  }
+
+  /* Address gutter: page-wide ruled line with hex offsets */
+  .hex-gutter {
+    color: #3F3C36;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Heavy section break that looks like an ASCII rule */
+  .ascii-rule {
+    color: #27241F;
+    font-family: var(--font-mono), monospace;
+    font-size: 14px;
+    line-height: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    user-select: none;
+  }
+}

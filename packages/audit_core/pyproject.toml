@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "audit-core"
+version = "0.1.0"
+description = "Shared schemas and types for Virgil — the security audit platform."
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["audit_core"]

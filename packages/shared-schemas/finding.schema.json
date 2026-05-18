@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://virgil.local/schemas/finding.schema.json",
+  "title": "Finding",
+  "description": "Unified, normalized security finding. safe_guidance is high-level defensive guidance only; never contains exploit payloads, exact diffs, or step-by-step reproduction.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id","title","severity","confidence","category","affected_files","affected_lines","evidence","explanation","source_tool","status","created_at"],
+  "properties": {
+    "id":            { "type": "string", "format": "uuid" },
+    "audit_id":      { "type": "string", "format": "uuid" },
+    "dedupe_key":    { "type": "string" },
+    "title":         { "type": "string", "minLength": 1, "maxLength": 256 },
+    "severity":      { "enum": ["Informational","Low","Medium","High","Critical"] },
+    "confidence":    { "enum": ["Low confidence","Medium confidence","High confidence","Requires manual verification"] },
+    "category":      { "type": "string" },
+    "owasp_category":{ "type": ["string","null"] },
+    "cwe":           { "type": ["string","null"], "pattern": "^(CWE-[0-9]+)?$" },
+    "cve":           { "type": ["string","null"], "pattern": "^(CVE-[0-9]{4}-[0-9]{4,})?$" },
+    "affected_files":{ "type": "array", "items": { "type": "string" } },
+    "affected_lines":{
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file","start"],
+        "additionalProperties": false,
+        "properties": {
+          "file":  { "type": "string" },
+          "start": { "type": "integer", "minimum": 1 },
+          "end":   { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "evidence":               { "type": "string", "description": "Redacted snippet." },
+    "explanation":            { "type": "string" },
+    "exploitability_summary": { "type": ["string","null"] },
+    "business_impact":        { "type": ["string","null"] },
+    "safe_guidance":          { "type": ["string","null"] },
+    "source_tool":            { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "raw_reference":          { "type": "object", "additionalProperties": true },
+    "epss_score":             { "type": ["number","null"], "minimum": 0.0, "maximum": 1.0, "description": "FIRST.org EPSS probability of exploitation in next 30 days." },
+    "epss_percentile":        { "type": ["number","null"], "minimum": 0.0, "maximum": 1.0 },
+    "kev":                    { "type": "boolean", "description": "Present in CISA Known Exploited Vulnerabilities catalog." },
+    "status":                 { "enum": ["open","triaged","accepted_risk","false_positive","fixed"] },
+    "created_at":             { "type": "string", "format": "date-time" }
+  }
+}
