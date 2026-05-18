@@ -993,21 +993,23 @@ ordered by leverage; later items can assume earlier ones are done.
    a finding gets a hover-trace back to the deterministic artifact
    (rule id, file/line, raw scanner output). Reinforces §1's
    grounding rule visually.
-10. [x] **Sample audit on first launch.** API container's entrypoint
-    runs `alembic upgrade head` then `python -m app.seed`, loading a
-    15-finding OWASP NodeGoat audit from
-    `apps/api/app/seed_data/nodegoat.json` (full code_context slices,
-    compliance mapping, KEV match, unreachable-dep example, priority
-    queue, fix-the-helper hints, pre-baked chat transcript). Idempotent
-    via a sentinel UUID `00000000-0000-0000-0000-000000000001`; opt-out
-    via `SEED_DEMO_AUDIT=false`. Compose also wires
+10. [x] **First-launch demonstration.** A hand-crafted seed audit was
+    considered and rejected — putting fabricated content under a real
+    GitHub URL would mislead first-time visitors. Instead the homepage
+    carries a one-click **"run sample scan"** CTA (`TrySample`
+    component) that submits the configured demo target (default
+    `https://github.com/OWASP/NodeGoat`, override via
+    `NEXT_PUBLIC_DEMO_SCAN_URL`) through the live `/v1/audits/json`
+    endpoint. The user watches the actual pipeline run end-to-end —
+    sandboxed scanners, normalization, triage layer — and every finding
+    they see is real scanner output. Compose also wires
     `scanner-image-builder` as a `service_completed_successfully`
     dependency of the worker, so a single `docker compose up` does
-    everything cold. Landing page's demo link auto-resolves to the
-    seeded audit when present, falls back to the TS-fixture demo when
-    not. **16 new unit tests in `tests/test_seed.py`** covering fixture
-    invariants, cluster-key hash agreement with `services.clusters`,
-    idempotency, opt-out behavior. Total 270 passing.
+    everything cold (the prereq image build is no longer manual). The
+    TS-fixture route at `/audits/demo` remains for pure design review,
+    now wrapped in `app/audits/[id]/layout.tsx` that banner-labels it
+    *"static design fixture — not a real scan"* so no visitor mistakes
+    it for live data.
 11. [~] **`pipx install virgilhq` distribution.** CLI `pyproject.toml`
     has full PyPI metadata (classifiers, urls, keywords, README) and a
     `.github/workflows/publish-cli.yml` workflow publishes on tagged

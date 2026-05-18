@@ -29,11 +29,12 @@ as their PRs land.
       Package name is `virgilhq` (bare `virgil` was already taken on PyPI);
       CLI binary is still `virgil`. Homebrew once stable.
 - [ ] Static docs site (`docs/`)
-- [x] Sample audit on first launch — NodeGoat pre-baked. API entrypoint
-      runs migrations + seed; idempotent via sentinel UUID; opt-out via
-      `SEED_DEMO_AUDIT=false`. 15 findings, priority queue, fix-the-helper
-      hints, pre-baked chat transcript. `docker compose up` is now one
-      command (scanner-image-builder is a worker dependency).
+- [x] First-launch demonstration — one-click "run sample scan" button
+      submits OWASP NodeGoat (override via `NEXT_PUBLIC_DEMO_SCAN_URL`)
+      through the live pipeline. Every finding is real scanner output.
+      `docker compose up` is now one command (scanner-image-builder is
+      a worker dependency). The TS-fixture `/audits/demo` route is
+      kept for design review and clearly labeled as such.
 
 ### Analysis depth
 

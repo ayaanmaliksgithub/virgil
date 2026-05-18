@@ -74,11 +74,17 @@ That's it. One command. On a cold cache the first run takes ~3–5 minutes
 to bake the scanner image (Semgrep + Trivy + Gitleaks pre-warmed). After
 that, every restart is seconds.
 
-Open <http://localhost:3000>. You'll land on a populated UI — a seeded
-OWASP NodeGoat audit with 15 findings, ranked priority queue,
-fix-the-helper hints, and a pre-baked chat transcript. The API container
-runs migrations and the seed automatically on first boot; set
-`SEED_DEMO_AUDIT=false` to skip the seed.
+Open <http://localhost:3000>. The page is intentionally empty until you
+submit a target — there's a one-click **"run sample scan"** button
+pointed at [OWASP NodeGoat](https://github.com/OWASP/NodeGoat), a
+deliberately-vulnerable Node.js training app. Clicking it submits the
+real URL through the same `/v1/audits/json` route your own repos would
+use; the pipeline runs end-to-end for ~3 minutes and every finding you
+see is actual scanner output. Override the suggested target via
+`NEXT_PUBLIC_DEMO_SCAN_URL` at web build time.
+
+For UI-only design review, `/audits/demo` renders a static TS fixture
+labeled clearly as such. No backend required.
 
 ### Submit a scan
 

@@ -39,12 +39,6 @@ services:
       context: .
       dockerfile: docker/api.Dockerfile
     env_file: [.env]
-    environment:
-      # First-launch UX: the api container's entrypoint runs alembic and
-      # seeds an OWASP NodeGoat demo audit on a fresh DB, so localhost:3000
-      # is populated immediately on a clean `docker compose up`. Set to
-      # "false" to skip the seed; the seed itself is idempotent regardless.
-      SEED_DEMO_AUDIT: "true"
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

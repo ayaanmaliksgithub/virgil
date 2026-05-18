@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SubmissionForm } from "@/components/submission-form";
-import { resolveDemoAuditHref } from "@/lib/server";
+import { TrySample } from "@/components/try-sample";
+import { DEMO_SCAN_URL } from "@/lib/server";
 
 /* Hand-cut banner — renders the platform mark in a chunky figlet style. */
 const BANNER = `\
@@ -14,8 +15,7 @@ const BANNER = `\
   ████████▀  █▀    ▄████▀        ███    █▀      ██████████   ███    ███
                                                              ███    ███`;
 
-export default async function Landing() {
-  const demoHref = await resolveDemoAuditHref();
+export default function Landing() {
   return (
     <div className="relative">
       <pre aria-hidden className="ascii-rule mb-4">{"─".repeat(220)}</pre>
@@ -79,13 +79,16 @@ export default async function Landing() {
 
         <div className="col-span-12 mt-10 md:col-span-7 md:mt-0">
           <SubmissionForm />
+          <div className="mt-4">
+            <TrySample url={DEMO_SCAN_URL} />
+          </div>
           <div className="mt-3 flex items-center justify-end">
             <Link
-              href={demoHref}
+              href="/audits/demo"
               className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest2 text-bone-mute transition-colors hover:text-signal-live"
             >
               <span aria-hidden className="text-ink-400">→</span>
-              inspect_demo_case()
+              inspect_design_fixture()
             </Link>
           </div>
         </div>
