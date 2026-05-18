@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "virgil"
+name = "virgilhq"
 version = "0.1.0"
-description = "CLI for Virgil — self-hosted security audit with the triage built in. Real scanners + clustering + LLM priority queue + code-grounded chat."
+description = "CLI for Virgil — self-hosted security audit with the triage built in. Real scanners + clustering + LLM priority queue + code-grounded chat. Installs as `virgil` on your PATH."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

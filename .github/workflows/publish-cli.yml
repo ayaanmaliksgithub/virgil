@@ -13,13 +13,14 @@ on:
 
 # This workflow uses PyPI Trusted Publishing — no API token needed.
 # One-time setup at https://pypi.org/manage/account/publishing/:
-#   PyPI project name: virgil
+#   PyPI project name: virgilhq    (the bare `virgil` was already taken)
 #   Owner:             ayaanmaliksgithub
-#   Repository:        virgil
+#   Repository:        virgil      (the GitHub repo, not the PyPI name)
 #   Workflow:          publish-cli.yml
 #   Environment:       pypi
 #
-# After that, any release tag like `v0.1.0` triggers a publish.
+# After that, any release tag like `v0.1.0` triggers a publish. The CLI
+# binary on user $PATH is `virgil` regardless of the package name.
 
 permissions:
   contents: read
@@ -69,7 +70,7 @@ jobs:
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)
     environment:
       name: pypi
-      url: https://pypi.org/p/virgil
+      url: https://pypi.org/p/virgilhq
     permissions:
       id-token: write  # required for PyPI OIDC trusted publishing
     steps:

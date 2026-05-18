@@ -24,9 +24,10 @@ as their PRs land.
 - [x] Reusable GitHub Action workflow (no GitHub App needed) — composite
       action at repo root, copy-paste example at
       `examples/github-action-virgil.yml`
-- [~] `pipx install virgil` on PyPI — metadata + OIDC publish workflow
+- [~] `pipx install virgilhq` on PyPI — metadata + OIDC publish workflow
       shipped; pending one-time Trusted Publisher registration on PyPI.
-      Homebrew once stable.
+      Package name is `virgilhq` (bare `virgil` was already taken on PyPI);
+      CLI binary is still `virgil`. Homebrew once stable.
 - [ ] Static docs site (`docs/`)
 - [ ] Sample audit on first launch — NodeGoat pre-baked
 

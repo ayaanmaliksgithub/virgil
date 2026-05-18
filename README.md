@@ -81,7 +81,7 @@ without running a scan.
 ```bash
 # from the web UI:   http://localhost:3000  →  paste a GitHub URL
 # from the CLI:
-pip install virgil                            # or pipx install virgil
+pip install virgilhq                          # or pipx install virgilhq — binary is `virgil`
 virgil scan .                                 # current dir
 virgil scan --url https://github.com/OWASP/NodeGoat
 virgil findings <audit-id>

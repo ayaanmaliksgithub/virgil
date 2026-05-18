@@ -11,8 +11,11 @@ with CI-friendly exit codes.
 ## Install
 
 ```bash
-pip install virgil          # or: pipx install virgil
+pip install virgilhq        # or: pipx install virgilhq
 ```
+
+The PyPI package is `virgilhq` (the bare `virgil` name was already taken).
+The command on your `$PATH` is still just `virgil`.
 
 You'll also need a running Virgil instance. The standard self-hosted setup
 is `docker compose up` from the [main repo](https://github.com/ayaanmaliksgithub/virgil)

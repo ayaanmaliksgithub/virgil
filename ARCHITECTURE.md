@@ -996,12 +996,14 @@ ordered by leverage; later items can assume earlier ones are done.
 10. [ ] **Sample audit on first launch.** New install seeds the DB
     with a pre-baked OWASP NodeGoat audit so `localhost:3000` is
     never empty on first visit.
-11. [~] **`pipx install virgil` distribution.** CLI `pyproject.toml`
+11. [~] **`pipx install virgilhq` distribution.** CLI `pyproject.toml`
     has full PyPI metadata (classifiers, urls, keywords, README) and a
     `.github/workflows/publish-cli.yml` workflow publishes on tagged
-    release via PyPI Trusted Publishing (OIDC, no API token). One-time
+    release via PyPI Trusted Publishing (OIDC, no API token). PyPI
+    project name is **`virgilhq`** — bare `virgil` was taken on PyPI
+    before we got there; the CLI binary remains `virgil`. One-time
     Trusted Publisher registration on PyPI is the only remaining step
-    before the first `pip install virgil` works. Homebrew formula
+    before the first `pip install virgilhq` works. Homebrew formula
     follows once the PyPI package has stabilized.
 12. [ ] **Documentation site.** A simple static site (`docs/`) with
     install, scanner tour, FAQ, screenshot gallery. README does
