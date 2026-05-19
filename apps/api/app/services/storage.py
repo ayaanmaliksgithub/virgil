@@ -27,8 +27,8 @@ from app.config import get_settings
 
 log = logging.getLogger(__name__)
 
-ReportView = Literal["executive", "technical"]
-ReportFormat = Literal["json", "md", "pdf"]
+ReportView = Literal["executive", "technical", "sbom"]
+ReportFormat = Literal["json", "md", "pdf", "cyclonedx", "spdx"]
 
 
 @dataclass
@@ -72,9 +72,12 @@ def _ensure_bucket(bucket: str) -> None:
 
 
 _CONTENT_TYPES: dict[ReportFormat, str] = {
-    "json": "application/json",
-    "md":   "text/markdown; charset=utf-8",
-    "pdf":  "application/pdf",
+    "json":      "application/json",
+    "md":        "text/markdown; charset=utf-8",
+    "pdf":       "application/pdf",
+    # CycloneDX 1.5 publishes a vendor media type; SPDX 2.3 uses plain JSON.
+    "cyclonedx": "application/vnd.cyclonedx+json",
+    "spdx":      "application/spdx+json",
 }
 
 

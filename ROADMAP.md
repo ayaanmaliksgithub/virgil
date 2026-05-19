@@ -38,7 +38,11 @@ as their PRs land.
 
 ### Analysis depth
 
-- [ ] SBOM generation (CycloneDX + SPDX, via Trivy)
+- [x] SBOM generation (CycloneDX + SPDX, via Trivy) — `worker/sbom.py`
+      emits both formats per audit in the same sandbox the scanners
+      use; report route serves `format=cyclonedx|spdx` from storage
+      with vendor media types; web report page exposes two new
+      download links.
 - [ ] VEX intake — auto-suppress on `not_affected` / `fixed`
 - [ ] Audit comparison view (3-column new/recurring/resolved)
 - [ ] More reachability languages: PHP, Rust, C#

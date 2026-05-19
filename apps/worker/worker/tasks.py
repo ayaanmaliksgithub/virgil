@@ -199,6 +199,7 @@ def run_audit(self, audit_id: str) -> None:
                        f"Priority list skipped: {type(e).__name__}", level="warning")
 
             _persist_report_artifacts(db, audit, persisted)
+            _persist_sboms(db, audit, repo_dir, out_dir)
 
             # §17 #4 — auto-pick the previous succeeded audit of the same source_ref
             # as the baseline so the findings ledger renders new/recurring on first
@@ -364,6 +365,49 @@ def _persist_report_artifacts(db, audit: Audit, findings: list[FindingRow]) -> N
     if stored:
         db.commit()
         _event(db, audit, AuditPhase.REPORTING, f"Stored {stored} report artifact(s)")
+
+
+def _persist_sboms(db, audit: Audit, repo_dir: Path, out_root: Path) -> None:
+    """Generate CycloneDX + SPDX SBOMs via Trivy and persist them as
+    `reports(kind="sbom", format=<variant>)` rows pointing at object storage.
+
+    Best-effort: a missing container runtime, a Trivy failure, or storage
+    outage all log and continue. SBOM artifacts are surfaced as download
+    options on the report page when present; their absence is a soft gap,
+    never a reason to fail the audit.
+    """
+    from worker.sbom import generate_sboms
+
+    sbom_out = out_root / "sbom"
+    try:
+        artifacts = generate_sboms(repo_dir, sbom_out)
+    except Exception as e:
+        _event(db, audit, AuditPhase.REPORTING,
+               f"SBOM generation skipped: {type(e).__name__}", level="warning")
+        return
+    if not artifacts:
+        return
+
+    stored = 0
+    for variant, body in artifacts.items():
+        try:
+            obj = put_report(str(audit.id), "sbom", variant, body)
+        except Exception as e:
+            _event(db, audit, AuditPhase.REPORTING,
+                   f"sbom.{variant} storage skipped: {type(e).__name__}", level="warning")
+            continue
+        db.execute(
+            delete(Report).where(
+                Report.audit_id == audit.id,
+                Report.kind == "sbom",
+                Report.format == variant,
+            )
+        )
+        db.add(Report(audit_id=audit.id, kind="sbom", format=variant, uri=obj.uri))
+        stored += 1
+    if stored:
+        db.commit()
+        _event(db, audit, AuditPhase.REPORTING, f"Stored {stored} SBOM artifact(s)")
 
 
 def _phase(db, audit: Audit, phase: AuditPhase, message: str) -> None:

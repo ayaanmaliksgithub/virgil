@@ -29,12 +29,15 @@ export default async function ReportPage({
         tabs={tabs(params.id, "report")}
       />
 
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-y-3">
         <ViewSwitch active={view} auditId={params.id} />
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <ExportLink href={`/api/v1/audits/${params.id}/report?view=${view}&format=pdf`}>report.pdf</ExportLink>
           <ExportLink href={`/api/v1/audits/${params.id}/report?view=${view}&format=md`}>report.md</ExportLink>
           <ExportLink href={`/api/v1/audits/${params.id}/report?view=${view}&format=json`}>report.json</ExportLink>
+          <ExportLink href={`/api/v1/audits/${params.id}/report?format=sarif`} kind="dim">findings.sarif</ExportLink>
+          <ExportLink href={`/api/v1/audits/${params.id}/report?format=cyclonedx`} kind="dim">sbom.cdx.json</ExportLink>
+          <ExportLink href={`/api/v1/audits/${params.id}/report?format=spdx`} kind="dim">sbom.spdx.json</ExportLink>
         </div>
       </div>
 
@@ -62,12 +65,23 @@ function ViewSwitch({ active, auditId }: { active: "executive" | "technical"; au
   );
 }
 
-function ExportLink({ href, children }: { href: string; children: React.ReactNode }) {
+function ExportLink({
+  href,
+  children,
+  kind = "primary",
+}: {
+  href: string;
+  children: React.ReactNode;
+  kind?: "primary" | "dim";
+}) {
+  // SBOM + SARIF are secondary exports — visually demote so the report
+  // formats (pdf/md/json) stay the headline action.
+  const cls =
+    kind === "dim"
+      ? "inline-flex items-baseline gap-2 border border-ink-300/60 px-3 py-2 font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost hover:border-signal-live hover:text-signal-live"
+      : "inline-flex items-baseline gap-2 border border-ink-300 px-3 py-2 font-mono text-[11px] uppercase tracking-widest2 text-bone-mute hover:border-signal-live hover:text-signal-live";
   return (
-    <a
-      href={href}
-      className="inline-flex items-baseline gap-2 border border-ink-300 px-3 py-2 font-mono text-[11px] uppercase tracking-widest2 text-bone-mute hover:border-signal-live hover:text-signal-live"
-    >
+    <a href={href} className={cls}>
       <span aria-hidden className="text-ink-400">$</span>
       cat {children}
     </a>

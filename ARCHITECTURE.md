@@ -915,10 +915,23 @@ at the modules touched — same convention as §16.
     (required reviews, signed commits, force-push protection,
     secret-scanning enabled) and emits findings for non-compliant
     defaults.
-15. [ ] **SBOM generation (CycloneDX + SPDX).** Per-audit SBOM artifact
-    emitted by Trivy (`trivy sbom`) and persisted as a `reports` row
-    with `format=cbom` / `format=spdx`. Surface on the report view as a
-    download alongside the existing JSON/MD/PDF links.
+15. [x] **SBOM generation (CycloneDX + SPDX).** `worker/sbom.py` runs
+    two `trivy fs --format cyclonedx/spdx-json` invocations inside the
+    same `--network=none --read-only --cap-drop=ALL` sandbox the
+    scanners use, after the main report-artifact step. Output bytes
+    persist via `app.services.storage.put_report` and surface as
+    `reports(kind="sbom", format="cyclonedx"|"spdx")` rows. The report
+    route's format enum now accepts `cyclonedx|spdx`; both are served
+    straight from object storage with the correct vendor media types
+    (`application/vnd.cyclonedx+json`, `application/spdx+json`). No
+    live regeneration — SBOM needs the repo on disk, so a missing
+    stored artifact returns 503. Web report page exposes two new
+    download links alongside the existing pdf/md/json/sarif row.
+    Failures are best-effort: a missing container runtime or a Trivy
+    crash logs and continues; the audit still completes without SBOMs.
+    **7 new unit tests in `tests/test_sbom.py`** covering both-variant
+    success, per-variant skip on rc≠0, missing/empty output, sandbox
+    error swallow, and Trivy argv shape. Total 261 passing.
 16. [ ] **VEX intake.** Users can attach an OpenVEX or CycloneDX-VEX
     document to an audit (or per repo). Findings whose CVE is marked
     `not_affected` / `fixed` in the VEX doc are suppressed automatically
@@ -971,9 +984,13 @@ ordered by leverage; later items can assume earlier ones are done.
    payload, posts a sticky priority-queue comment, uploads SARIF as an
    artifact. Copy-paste example in
    [`examples/github-action-virgil.yml`](examples/github-action-virgil.yml).
-3. [ ] **SBOM generation** (CycloneDX + SPDX). Trivy already supports
-   `trivy sbom`; we just need to invoke + persist the artifact as a
-   `reports` row. One-day item.
+3. [x] **SBOM generation** (CycloneDX + SPDX). `worker/sbom.py` runs
+   two extra `trivy fs --format cyclonedx/spdx-json` invocations in
+   the sandbox after report artifacts, uploads via `put_report`, and
+   the report route serves `format=cyclonedx|spdx` straight from
+   storage with vendor media types. Best-effort: a Trivy failure or
+   missing container runtime degrades to no SBOM, never fails the
+   audit.
 4. [ ] **VEX intake.** Users attach OpenVEX / CycloneDX-VEX docs to an
    audit; findings whose CVE is marked `not_affected` / `fixed`
    auto-suppress with the upstream justification carried through.
