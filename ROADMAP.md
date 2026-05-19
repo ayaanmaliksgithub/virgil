@@ -20,7 +20,10 @@ as their PRs land.
 
 ### Distribution + DX
 
-- [ ] VS Code extension (inline annotations + chat sidebar)
+- [~] VS Code extension — initial release at `apps/vscode/`. Inline
+      diagnostics on every finding for the workspace-pinned audit ID,
+      status-bar rollup, auto-refresh. Chat sidebar + audit-ID
+      auto-discovery + Marketplace publish are follow-ups.
 - [x] Reusable GitHub Action workflow (no GitHub App needed) — composite
       action at repo root, copy-paste example at
       `examples/github-action-virgil.yml`

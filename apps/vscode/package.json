@@ -1,0 +1,93 @@
+{
+  "name": "virgil",
+  "displayName": "Virgil",
+  "description": "Inline security-audit annotations from a running Virgil instance. Findings appear as diagnostics on the lines the scanners flagged; the status bar shows the rollup at a glance.",
+  "version": "0.1.0",
+  "publisher": "ayaanmaliksgithub",
+  "license": "Apache-2.0",
+  "homepage": "https://virgilhq.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ayaanmaliksgithub/virgil.git",
+    "directory": "apps/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/ayaanmaliksgithub/virgil/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "audit",
+    "sast",
+    "semgrep",
+    "trivy",
+    "gitleaks",
+    "virgil"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "virgil.setAudit",
+        "title": "Virgil: Set Audit ID for this workspace"
+      },
+      {
+        "command": "virgil.clearAudit",
+        "title": "Virgil: Clear the configured Audit ID"
+      },
+      {
+        "command": "virgil.refresh",
+        "title": "Virgil: Refresh diagnostics"
+      },
+      {
+        "command": "virgil.openInBrowser",
+        "title": "Virgil: Open the current audit in your browser"
+      }
+    ],
+    "configuration": {
+      "title": "Virgil",
+      "properties": {
+        "virgil.api": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Base URL of the Virgil API. Defaults to a local `docker compose up` instance."
+        },
+        "virgil.webUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Base URL of the Virgil web UI (used by 'Open in browser')."
+        },
+        "virgil.minSeverity": {
+          "type": "string",
+          "enum": ["Critical", "High", "Medium", "Low", "Informational"],
+          "default": "Low",
+          "description": "Lowest severity to surface as a diagnostic. Findings below this floor are silently dropped."
+        },
+        "virgil.includeSuppressed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show findings that are suppressed on the server. Off by default to match the web UI."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

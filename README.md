@@ -135,6 +135,28 @@ GitHub's Code Scanning tab. ~3 minutes on a cold run; faster after.
 A full example with all inputs is in
 [examples/github-action-virgil.yml](examples/github-action-virgil.yml).
 
+## Read findings in your editor (VS Code)
+
+The VS Code extension at [apps/vscode/](apps/vscode/) reads findings
+from your running Virgil instance and surfaces them as native VS Code
+diagnostics — squiggles on the offending lines, a Problems-panel
+rollup, and a status-bar count (`virgil: 2C 7H 12M · c9b1d8a3`) that
+clicks through to the audit in your browser.
+
+Not on the Marketplace yet (v0.1). For now:
+
+```bash
+cd apps/vscode
+npm install && npm run compile
+# then `code --install-extension .` with the `vsce` CLI,
+# or open the folder in VS Code and run "Extensions: Install from VSIX…"
+```
+
+Once installed, run **Virgil: Set Audit ID** (Cmd-Shift-P) and paste
+the UUID from `virgil scan .` output. The extension polls the API
+every 5 minutes; manual refresh is a command too. Read-only by design
+— suppression and baseline management stay in the web UI.
+
 ## What works today
 
 Honest status: this is alpha-grade. The analysis engine is solid; the
@@ -199,11 +221,12 @@ apps/
   worker/   Celery worker — sandbox runner, scanner adapters, normalize, LLM
   web/      Next.js 14 (App Router) — landing, audit console, findings, reports
   cli/      `virgil` CLI
+  vscode/   VS Code extension — inline diagnostics, status-bar rollup
 packages/
   audit_core/         Shared Pydantic models + enums
   shared-schemas/     JSON Schema for the Finding contract
 docker/               Per-service Dockerfiles (incl. the sandbox scanner image)
-tests/                254 unit tests; pytest
+tests/                261 unit tests; pytest
 ```
 
 Full design notes: [ARCHITECTURE.md](ARCHITECTURE.md).

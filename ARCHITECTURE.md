@@ -972,10 +972,19 @@ follows is the short list that's on the active path.
 Same discipline as §17: one PR per item, with tests. Items below are
 ordered by leverage; later items can assume earlier ones are done.
 
-1. [ ] **VS Code extension.** Inline annotations on findings in the
-   open file, "explain this finding" sidebar calling the chat
-   endpoint, status-bar item for the latest audit on this branch.
-   Talks to the same `localhost:8000` API the CLI uses.
+1. [~] **VS Code extension.** Initial release at `apps/vscode/`. Reads
+   findings for a workspace-configured audit ID and surfaces them as
+   VS Code diagnostics on the matching file + line range — severity
+   maps Critical/High → Error, Medium → Warning, Low → Information,
+   Informational → Hint. Status-bar rollup
+   (`virgil: 2C 7H 12M · c9b1d8a3`) clicks through to the audit in
+   the browser. Auto-refreshes every 5 minutes; manual refresh
+   command available. Settings: `virgil.api`, `virgil.webUrl`,
+   `virgil.minSeverity`, `virgil.includeSuppressed`. Deferred to a
+   follow-up: "explain this finding" chat sidebar (needs a webview),
+   audit-ID auto-discovery via the git remote, and code-action
+   "suppress this finding" prompt. Marketplace publish also a
+   follow-up.
 2. [x] **GitHub Action** (no GitHub App). Composite action at the
    repo root (`action.yml`); other repos use it with
    `uses: ayaanmaliksgithub/virgil@v0.1.0`. Spins up the compose stack
