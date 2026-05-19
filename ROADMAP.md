@@ -32,6 +32,11 @@ as their PRs land.
       Package name is `virgilhq` (bare `virgil` was already taken on PyPI);
       CLI binary is still `virgil`. Homebrew once stable.
 - [ ] Static docs site (`docs/`)
+- [~] 90-second screencast — beat-by-beat script + storyboard +
+      voiceover lines shipped at `docs/screencast.md`; the recording
+      itself is a user action (no headless way to capture this from
+      CI). README has a placeholder comment with the embed shape it
+      should take once the video lands.
 - [x] First-launch demonstration — one-click "run sample scan" button
       submits OWASP NodeGoat (override via `NEXT_PUBLIC_DEMO_SCAN_URL`)
       through the live pipeline. Every finding is real scanner output.

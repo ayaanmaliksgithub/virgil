@@ -4,6 +4,20 @@
 > tool, not an autopatcher. Reads your repo, runs real scanners in a
 > sandbox, ranks the noise out, and explains what's left in the actual code.
 
+<!--
+  90-SECOND TOUR — placeholder pending the first recording. The script +
+  beat-by-beat storyboard is in `docs/screencast.md`. Once you capture
+  the video, replace this comment block with:
+
+      ## Watch the 90-second tour
+
+      [![Virgil — 90-second tour](docs/screencast-thumb.png)](https://youtu.be/<id>)
+
+  and drop a thumbnail PNG into `docs/`. Until then this comment is the
+  spec for anyone who wants to shoot it.
+-->
+
+
 ```
 $ virgil scan .
 bundle /work/myrepo → zip → submit
