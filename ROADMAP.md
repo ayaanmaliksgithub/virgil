@@ -47,8 +47,14 @@ as their PRs land.
 
 ### UX
 
-- [ ] "Why did you flag this?" hover trace from LLM line → scanner
-      artifact
+- [x] "Why did you flag this?" trace — each LLM prose block on the
+      finding detail page carries a `└─ from <scanner>:<rule> · file:Lline ¶ trace`
+      footer; the sidebar's old prose "provenance" block was replaced
+      by a structured panel listing every deterministic artifact the
+      LLM was grounded in (scanner+rule, file+lines, evidence, CWE
+      → mitre.org, CVE → nvd.nist.gov + KEV/EPSS, OWASP, code context
+      anchor). Footer cleanly distinguishes LLM-described vs.
+      scanner-only audits.
 - [ ] Inline finding diff on the audit comparison view
 - [ ] Bulk-suppress from cluster row (one justification, N rows)
 

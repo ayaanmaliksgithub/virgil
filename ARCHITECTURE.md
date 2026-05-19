@@ -989,10 +989,25 @@ ordered by leverage; later items can assume earlier ones are done.
 8. [ ] **AI/ML risk scanners** (§17 #10 carried forward). Detect
    prompt-injection-prone templates, exposed model weights, unsafe
    `eval`/`exec` over LLM output. Starts as a Semgrep rule pack.
-9. [ ] **"Why did you flag this?" trace.** Every LLM-surfaced line on
-   a finding gets a hover-trace back to the deterministic artifact
-   (rule id, file/line, raw scanner output). Reinforces §1's
-   grounding rule visually.
+9. [x] **"Why did you flag this?" trace.** Implements §1's grounding
+   rule visually on the finding detail page. Two pieces in
+   `apps/web/components/`:
+   - **`ProvenanceTag`** — small always-visible footer on every
+     LLM-generated prose block (`explanation()`,
+     `exploitability_summary()`, `business_impact()`,
+     `safe_guidance()`) reading `└─ from <scanner>:<rule_id> · <file>:Lstart
+     ¶ trace`. The trailing `¶ trace` anchors to the full panel below.
+   - **`GroundingTrace`** — replaces the old prose "provenance" sidebar
+     block with a structured panel listing every deterministic
+     artifact the LLM was grounded in: scanner + rule, file + lines,
+     redacted evidence, CWE (→ mitre.org), CVE (→ nvd.nist.gov) with
+     KEV/EPSS flags, OWASP category, link to the `code.context()`
+     block above. Footer makes LLM-vs-scanner provenance unambiguous:
+     when `business_impact` or `exploitability_summary` is present
+     (LLM-only fields) it labels "scanners detected; llm described";
+     otherwise "scanner output only · no llm ran". Each finding gets
+     its own anchor (`#provenance-{finding_id}`) so the inline tags
+     scroll the user to the receipts.
 10. [x] **First-launch demonstration.** A hand-crafted seed audit was
     considered and rejected — putting fabricated content under a real
     GitHub URL would mislead first-time visitors. Instead the homepage

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { CodeContext } from "@/components/code-context";
 import { ConfidenceChip } from "@/components/confidence-chip";
+import { GroundingTrace } from "@/components/grounding-trace";
 import { OwaspBadge } from "@/components/owasp-badge";
+import { ProvenanceTag } from "@/components/provenance-tag";
 import { SeverityChip } from "@/components/severity-chip";
 import { SuppressAction } from "@/components/suppress-action";
 import { loadAudit, loadFinding } from "@/lib/server";
@@ -114,23 +116,26 @@ export default async function FindingDetailPage({ params }: { params: { id: stri
       <section className="mt-10 grid grid-cols-12 gap-x-8 gap-y-10">
         <div className="col-span-12 lg:col-span-7 space-y-8">
           {finding.code_context && (
-            <Block label="code.context() · the actual code">
-              <CodeContext
-                codeContext={finding.code_context}
-                highlightLine={finding.affected_lines?.[0]?.start ?? null}
-                fileLabel={finding.affected_lines?.[0]?.file ?? finding.affected_files?.[0]}
-              />
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
-                <span className="text-ink-400">{"//"}</span> {finding.affected_lines?.[0]?.start
-                  ? `${finding.affected_lines[0].start} is highlighted · `
-                  : ""}redactor scrubs secrets before we ever store, render, or send to the model.
-              </p>
-            </Block>
+            <div id="code-context">
+              <Block label="code.context() · the actual code">
+                <CodeContext
+                  codeContext={finding.code_context}
+                  highlightLine={finding.affected_lines?.[0]?.start ?? null}
+                  fileLabel={finding.affected_lines?.[0]?.file ?? finding.affected_files?.[0]}
+                />
+                <p className="mt-3 font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
+                  <span className="text-ink-400">{"//"}</span> {finding.affected_lines?.[0]?.start
+                    ? `${finding.affected_lines[0].start} is highlighted · `
+                    : ""}redactor scrubs secrets before we ever store, render, or send to the model.
+                </p>
+              </Block>
+            </div>
           )}
           <Block label="explanation()">
             <p className="font-mono text-[14px] leading-[1.7] text-bone-dim">
               <span className="text-bone-ghost">{"//"} </span>{finding.explanation}
             </p>
+            <ProvenanceTag finding={finding} />
           </Block>
 
           {finding.exploitability_summary && (
@@ -141,6 +146,7 @@ export default async function FindingDetailPage({ params }: { params: { id: stri
               <p className="mt-3 font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
                 <span className="text-ink-400">{"//"}</span> no payloads, no reproduction steps.
               </p>
+              <ProvenanceTag finding={finding} />
             </Block>
           )}
 
@@ -149,6 +155,7 @@ export default async function FindingDetailPage({ params }: { params: { id: stri
               <p className="font-mono text-[13px] leading-[1.7] text-bone-dim">
                 {finding.business_impact}
               </p>
+              <ProvenanceTag finding={finding} />
             </Block>
           )}
 
@@ -178,6 +185,7 @@ export default async function FindingDetailPage({ params }: { params: { id: stri
                   <span className="text-ink-400">{"//"}</span> safety validator: ok · payload/diff/step-by-step rejected
                 </p>
               </div>
+              <ProvenanceTag finding={finding} />
             </Block>
           )}
         </div>
@@ -206,15 +214,7 @@ export default async function FindingDetailPage({ params }: { params: { id: stri
             </ul>
           </div>
 
-          <div>
-            <div className="term-label mb-2">provenance</div>
-            <p className="border-l border-ink-300 pl-4 font-mono text-[12px] leading-[1.7] text-bone-mute">
-              <span className="text-bone-ghost">{"//"}</span> derived from{" "}
-              <span className="text-bone-dim">{finding.source_tool.join(" + ")}</span>, normalized,
-              redacted, and enriched by the audit reasoning layer. the llm
-              did not introduce findings — only descriptions.
-            </p>
-          </div>
+          <GroundingTrace finding={finding} />
         </aside>
       </section>
     </article>
