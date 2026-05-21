@@ -107,7 +107,8 @@ labeled clearly as such. No backend required.
 # from the CLI:
 pipx install virgilhq                         # binary on $PATH is `virgil`
 virgil scan .                                 # current dir
-virgil scan --url https://github.com/OWASP/NodeGoat
+virgil scan github.com/OWASP/NodeGoat         # bare host
+virgil scan OWASP/NodeGoat                    # GitHub shorthand
 virgil clusters <audit-id>                    # ranked, severity-grouped
 virgil chat     <audit-id>                    # streamed Q&A, grounded in this audit
 virgil report   <audit-id> --format sarif -o findings.sarif

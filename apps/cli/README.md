@@ -58,15 +58,16 @@ virgil config set web_url=https://virgil.example.com
 
 ```bash
 # Scan and land on triage (counts → ranked clusters → next-steps hint).
-virgil scan .
+virgil scan .                                 # local directory
+virgil scan                                   # …also defaults to the cwd
+virgil scan github.com/OWASP/NodeGoat         # remote, bare host
+virgil scan OWASP/NodeGoat                    # remote, GitHub shorthand
+virgil scan https://github.com/OWASP/NodeGoat # remote, full URL
 
-# Or land on a different surface after the scan finishes.
-virgil scan . --show report        # exec narrative
-virgil scan . --show surface       # languages / frameworks / IaC profile
-virgil scan . --show ask_virgil    # drop into the chat REPL pre-flighted
-
-# Scan a GitHub URL instead of a local path.
-virgil scan --url https://github.com/OWASP/NodeGoat
+# Land on a different surface after the scan finishes.
+virgil scan . --show report                   # exec narrative
+virgil scan . --show surface                  # languages / frameworks / IaC profile
+virgil scan . --show ask_virgil               # drop into the chat REPL pre-flighted
 
 # PR mode — only flag findings on lines changed between two SHAs.
 virgil scan . --base-sha abc1234 --head-sha def5678

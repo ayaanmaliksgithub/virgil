@@ -33,6 +33,7 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import re
 import sys
 import tempfile
 import webbrowser
@@ -122,12 +123,70 @@ def _ui(ctx: click.Context) -> Console:
     return _stderr_console if _is_json(ctx) else console
 
 
+# Recognized hosted Git providers. Bare `host/owner/repo` (no scheme) gets
+# https:// prepended automatically.
+_KNOWN_HOSTS = ("github.com", "gitlab.com", "bitbucket.org", "codeberg.org")
+_SHORTHAND_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$")
+
+
+def _resolve_scan_target(target_arg: str | None, url_flag: str | None) -> tuple[str, str]:
+    """Figure out whether the user meant a local directory or a remote repo.
+
+    Returns `("local", absolute-path)` or `("remote", https-url)`.
+
+    Detection (in order):
+      1. `--url FOO` (explicit, back-compat) → remote.
+      2. No positional arg → local cwd.
+      3. Looks like a URL (`http(s)://…`, `git@…`) → remote.
+      4. Starts with a known host (`github.com/x/y`) → remote, prepend `https://`.
+      5. Looks like a shorthand (`x/y`) AND no local path with that name exists
+         → remote on github.com.
+      6. Otherwise: must resolve as an existing local directory.
+    """
+    if url_flag and target_arg:
+        raise click.UsageError("Pass either TARGET or --url, not both.")
+    if url_flag:
+        return ("remote", url_flag)
+    if not target_arg:
+        return ("local", str(Path(".").resolve()))
+
+    s = target_arg.strip()
+
+    # Explicit URLs / SSH coordinates.
+    if s.startswith(("http://", "https://", "git@")):
+        return ("remote", s)
+
+    # `github.com/owner/repo` (no scheme).
+    for host in _KNOWN_HOSTS:
+        if s.startswith(host + "/"):
+            return ("remote", "https://" + s)
+
+    # `owner/repo` shorthand — but only if no local dir of that name exists.
+    # This lets `virgil scan myorg/myrepo` Do The Right Thing without
+    # accidentally hijacking a literal relative path the user has on disk.
+    if _SHORTHAND_RE.match(s) and not Path(s).exists():
+        return ("remote", f"https://github.com/{s.rstrip('/')}")
+
+    # Fall through: treat as a local path. Must exist and be a directory.
+    p = Path(s)
+    if not p.exists():
+        raise click.BadParameter(
+            f"no such path: {s!r}. "
+            "If you meant a remote repo, use `github.com/owner/repo` or `owner/repo`."
+        )
+    if not p.is_dir():
+        raise click.BadParameter(f"{s!r} is a file, not a directory")
+    return ("local", str(p.resolve()))
+
+
 # ---- scan -----------------------------------------------------------------
 
 
 @cli.command()
-@click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path), required=False)
-@click.option("--url", "repo_url", help="GitHub URL to scan instead of a local path.")
+@click.argument("target", required=False)
+@click.option("--url", "repo_url",
+              help="Explicit remote URL. Usually unnecessary — `virgil scan github.com/x/y` "
+                   "or `virgil scan x/y` is auto-detected as remote.")
 @click.option(
     "--fail-on",
     type=click.Choice(["never", "critical", "high", "medium", "low"], case_sensitive=False),
@@ -149,7 +208,7 @@ def _ui(ctx: click.Context) -> Console:
 @click.pass_context
 def scan(
     ctx: click.Context,
-    path: Path | None,
+    target: str | None,
     repo_url: str | None,
     fail_on: str | None,
     wait: bool,
@@ -157,29 +216,35 @@ def scan(
     head_sha: str | None,
     show: str | None,
 ) -> None:
-    """Run a scan on PATH (default: current dir) or --url.
+    """Scan a local directory or a remote repo.
 
-    Exits non-zero when findings of `--fail-on` severity or higher exist —
-    suitable for CI gating. Use `--fail-on never` to always exit 0.
+    TARGET can be:
+      .                          (or any local path)
+      https://github.com/x/y     full URL
+      github.com/x/y             bare host, scheme inferred
+      x/y                        GitHub shorthand (must not match a local dir)
+
+    Default with no TARGET is the current directory. Exits non-zero when
+    findings of `--fail-on` severity or higher exist — suitable for CI
+    gating. Use `--fail-on never` to always exit 0.
     """
-    if repo_url and path:
-        raise click.UsageError("Pass either PATH or --url, not both.")
     if (base_sha is None) != (head_sha is None):
         raise click.UsageError("--base-sha and --head-sha must be set together.")
+
+    kind, value = _resolve_scan_target(target, repo_url)
 
     effective_fail_on = (fail_on or config.default_fail_on()).lower()
     effective_show = (show or config.default_post_scan_view()).lower()
     ui = _ui(ctx)
 
     try:
-        if repo_url:
-            ui.print(f"[dim]submit URL → {repo_url}[/dim]")
-            audit = submit_url(repo_url, base_sha=base_sha, head_sha=head_sha)
+        if kind == "remote":
+            ui.print(f"[dim]submit URL → {value}[/dim]")
+            audit = submit_url(value, base_sha=base_sha, head_sha=head_sha)
         else:
-            target = (path or Path(".")).resolve()
-            ui.print(f"[dim]bundle {target} → zip → submit[/dim]")
+            ui.print(f"[dim]bundle {value} → zip → submit[/dim]")
             with tempfile.TemporaryDirectory() as tmp:
-                zip_path = _bundle_dir(target, Path(tmp))
+                zip_path = _bundle_dir(Path(value), Path(tmp))
                 audit = submit_zip(zip_path)
     except ApiUnreachable as e:
         ui.print(
