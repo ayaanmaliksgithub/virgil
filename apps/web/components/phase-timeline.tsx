@@ -9,7 +9,8 @@ import type { Phase } from "@/lib/types";
  * Live phase ledger for a running audit.
  *
  * Polls /api/v1/audits/[id] every 1.5s for state+phase. Stops when the audit
- * reaches a terminal state. On succeeded → soft-redirects to /report.
+ * reaches a terminal state. On succeeded → soft-redirects to /triage so the
+ * user lands on the ranked priority queue, not the full report dump.
  *
  * Polling instead of SSE because dev-server-proxied EventSource updates were
  * unreliable in practice — a 600-byte JSON poll every 1.5s is fine.
@@ -49,6 +50,7 @@ export function PhaseTimeline({
   failed?: boolean;
 }) {
   const router = useRouter();
+  const consolePath = `/audits/${auditId}`;
   const [phase, setPhase]   = useState<Phase>(current);
   const [hasFailed, setFailed] = useState<boolean>(!!failed);
 
@@ -56,6 +58,7 @@ export function PhaseTimeline({
     if (!auditId || auditId === "demo") return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let handoffTimer: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
       if (cancelled) return;
@@ -67,10 +70,14 @@ export function PhaseTimeline({
         if (a.phase) setPhase(a.phase as Phase);
         if (a.state === "failed") setFailed(true);
         if (a.state === "succeeded") {
-          // Soft handoff to the report view; small grace so the ledger ticks
-          // to "completed" before we navigate away.
-          setTimeout(() => {
-            if (!cancelled) router.replace(`/audits/${auditId}/report`);
+          // Soft handoff to triage; small grace so the ledger ticks to
+          // "completed" before we navigate away. The pathname guard prevents
+          // the redirect from yanking the user back if they've already
+          // clicked into another tab while waiting for the scan to finish.
+          handoffTimer = setTimeout(() => {
+            if (cancelled) return;
+            if (window.location.pathname !== consolePath) return;
+            router.replace(`/audits/${auditId}/triage`);
           }, 900);
           return; // stop polling
         }
@@ -86,8 +93,9 @@ export function PhaseTimeline({
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      if (handoffTimer) clearTimeout(handoffTimer);
     };
-  }, [auditId, router]);
+  }, [auditId, router, consolePath]);
 
   const idx = indexOf(phase);
   const running = !hasFailed && phase !== "completed";

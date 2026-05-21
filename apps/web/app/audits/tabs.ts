@@ -7,6 +7,6 @@ export function tabs(id: string, active: TabKey) {
     { href: `/audits/${id}/findings`,         label: "findings",      active: active === "findings" },
     { href: `/audits/${id}/attack-surface`,   label: "surface",       active: active === "attack-surface" },
     { href: `/audits/${id}/report`,           label: "report",        active: active === "report" },
-    { href: `/audits/${id}/chat`,             label: "ask_auditor",   active: active === "chat" },
+    { href: `/audits/${id}/chat`,             label: "ask_virgil",    active: active === "chat" },
   ];
 }
