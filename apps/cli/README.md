@@ -10,16 +10,49 @@ with CI-friendly exit codes.
 
 ## Install
 
+`virgil` is a CLI tool, so the right installer is **pipx** — it puts the
+binary on your `$PATH` and isolates the dependencies from your system Python:
+
 ```bash
-pip install virgilhq        # or: pipx install virgilhq
+pipx install virgilhq
+```
+
+Don't have pipx yet? Either install it once, or fall back to user-mode pip:
+
+```bash
+# macOS
+brew install pipx && pipx ensurepath
+
+# Linux / other
+python3 -m pip install --user pipx && pipx ensurepath
+
+# Fallback if you don't want pipx at all:
+python3 -m pip install --user virgilhq
 ```
 
 The PyPI package is `virgilhq` (the bare `virgil` name was already taken).
 The command on your `$PATH` is still just `virgil`.
 
+> **Why pipx and not `pip install`?** Modern Python distributions
+> (Homebrew Python, Debian/Ubuntu's python3, etc.) mark the system
+> interpreter as externally managed per
+> [PEP 668](https://peps.python.org/pep-0668/) — a bare `pip install`
+> errors out. `pipx` quietly handles the venv for you, which is what
+> you want for CLI tools anyway: each one gets its own isolated
+> environment so a `virgil` upgrade can't break some other tool.
+
 You'll also need a running Virgil instance. The standard self-hosted setup
 is `docker compose up` from the [main repo](https://github.com/ayaanmaliksgithub/virgil)
-— takes about a minute the first time.
+— takes about a minute the first time. The CLI's defaults
+(`http://localhost:8000` for the API, `http://localhost:3000` for the
+web app) match that setup exactly, so no config is needed.
+
+If you're pointing at a remote Virgil instead:
+
+```bash
+virgil config set api_url=https://virgil.example.com/api
+virgil config set web_url=https://virgil.example.com
+```
 
 ## Usage
 

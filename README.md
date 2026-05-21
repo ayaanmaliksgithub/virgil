@@ -105,10 +105,11 @@ labeled clearly as such. No backend required.
 ```bash
 # from the web UI:   http://localhost:3000  →  paste a GitHub URL
 # from the CLI:
-pip install virgilhq                          # or pipx install virgilhq — binary is `virgil`
+pipx install virgilhq                         # binary on $PATH is `virgil`
 virgil scan .                                 # current dir
 virgil scan --url https://github.com/OWASP/NodeGoat
-virgil findings <audit-id>
+virgil clusters <audit-id>                    # ranked, severity-grouped
+virgil chat     <audit-id>                    # streamed Q&A, grounded in this audit
 virgil report   <audit-id> --format sarif -o findings.sarif
 ```
 
