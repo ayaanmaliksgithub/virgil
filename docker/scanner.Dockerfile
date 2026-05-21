@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir "semgrep>=1.80"
 
 # Trivy
-ARG TRIVY_VERSION=0.52.0
+ARG TRIVY_VERSION=0.70.0
 RUN curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
       | tar -xz -C /usr/local/bin trivy \
     && trivy --version
@@ -37,6 +37,8 @@ ARG CODEQL_VERSION=2.17.6
 RUN mkdir -p /opt/codeql \
     && curl -fsSL "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-linux64.zip" -o /tmp/codeql.zip \
     && python -m zipfile -e /tmp/codeql.zip /opt/codeql \
+    && chmod -R +rx /opt/codeql/codeql \
+    && chmod +x /opt/codeql/codeql/codeql \
     && ln -s /opt/codeql/codeql/codeql /usr/local/bin/codeql \
     && rm /tmp/codeql.zip \
     && codeql version

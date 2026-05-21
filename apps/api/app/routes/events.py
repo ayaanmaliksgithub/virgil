@@ -59,3 +59,37 @@ async def stream_events(audit_id: UUID, db: Session = Depends(get_db)):
             await asyncio.sleep(POLL_INTERVAL_SEC)
 
     return EventSourceResponse(gen())
+
+
+# ---- Polling-friendly alternative to the SSE stream above. ---------------
+# The browser EventSource path is brittle in some dev-proxy setups; this
+# returns the same data via a plain JSON GET that clients can poll on a
+# timer. Pass `?since=<id>` to get only newer events.
+
+@router.get("/v1/audits/{audit_id}/events.json")
+def list_events(audit_id: UUID, since: int = 0, db: Session = Depends(get_db)):
+    audit = db.get(Audit, audit_id)
+    if not audit:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Audit not found")
+    stmt = (
+        select(JobEvent)
+        .where(JobEvent.audit_id == audit_id, JobEvent.id > since)
+        .order_by(JobEvent.id.asc())
+    )
+    rows = db.execute(stmt).scalars().all()
+    return {
+        "state": audit.state,
+        "phase": audit.phase,
+        "events": [
+            {
+                "id": r.id,
+                "ts": r.ts.isoformat() if r.ts else None,
+                "phase": r.phase,
+                "level": r.level,
+                "message": r.message,
+            }
+            for r in rows
+        ],
+        "cursor": rows[-1].id if rows else since,
+    }

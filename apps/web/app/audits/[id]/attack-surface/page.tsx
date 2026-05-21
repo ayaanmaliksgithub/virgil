@@ -39,7 +39,7 @@ export default async function AttackSurfacePage({ params }: { params: { id: stri
         <div className="term-label">method.note</div>
         <p className="mt-3 max-w-[80ch] border-l border-ink-300 pl-4 font-mono text-[12px] leading-[1.7] text-bone-dim">
           <span className="text-bone-ghost">{"//"}</span> pillars are deterministic groupings on top
-          of the normalized finding schema — cipher_audit does not invent categories. unmapped
+          of the normalized finding schema — virgil does not invent categories. unmapped
           findings are intentionally absent from this view and remain in the full ledger.
         </p>
       </section>

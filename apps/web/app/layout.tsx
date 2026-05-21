@@ -24,7 +24,7 @@ const display = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "cipher_audit ─ static analysis & risk register",
+  title: "virgil ─ static analysis & risk register",
   description:
     "Evidence-first cybersecurity audit. Not an exploit toolkit. Read the surface, never the keys.",
 };

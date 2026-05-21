@@ -25,8 +25,6 @@ export async function loadAudit(id: string): Promise<Audit> {
  * publicly documented findings. Operators can override at build time via
  * `NEXT_PUBLIC_DEMO_SCAN_URL`.
  */
-export const DEMO_SCAN_URL =
-  process.env.NEXT_PUBLIC_DEMO_SCAN_URL || "https://github.com/OWASP/NodeGoat";
 
 export async function loadFindings(
   id: string,

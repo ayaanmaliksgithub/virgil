@@ -42,12 +42,12 @@ function Header() {
           </pre>
           <div className="font-display text-[28px] leading-none tracking-tight">
             <span className="text-bone-mute">$</span>{" "}
-            <span className="text-bone">cipher_audit</span>
-            <span className="text-bone-ghost">::v0.1</span>
+            <span className="text-bone">virgil</span>
+            <span className="text-bone-ghost">::v1.1.0</span>
             <span className="ml-1 text-signal-live term-cursor" />
           </div>
           <pre aria-hidden className="text-[10px] leading-[12px] text-ink-400 select-none">
-{`└─ static analysis · risk register · no exploit output ─┘`}
+{`└─ automated security review · evidence-grounded ─┘`}
           </pre>
         </Link>
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -93,16 +93,16 @@ function Footer() {
         <div>
           <div className="term-label">scope</div>
           <p className="mt-2 font-mono text-[12px] leading-snug text-bone-dim">
-            cipher_audit identifies risk in source you control.{" "}
-            <span className="text-signal-critical">not an exploit toolkit</span>. no payloads, no PoCs, no step-by-step reproduction, no exact patches.
+            automated security review for codebases you ship.{" "}
+            <span className="text-bone">every finding</span> ships with severity, business impact, and clear, actionable remediation guidance.
           </p>
         </div>
         <div>
           <div className="term-label">method</div>
           <p className="mt-2 font-mono text-[12px] leading-snug text-bone-dim">
-            deterministic scanners (semgrep · trivy · gitleaks) run sandboxed.
-            llm reasoning operates over normalized,{" "}
-            <span className="text-bone">redacted</span> findings only — never invents vulnerabilities.
+            a multi-engine analysis pipeline runs in isolated sandboxes.
+            an llm explains every finding using{" "}
+            <span className="text-bone">evidence from your source</span> — never inventing vulnerabilities, never sending raw secrets.
           </p>
         </div>
         <div className="md:text-right">
@@ -115,7 +115,7 @@ function Footer() {
         </div>
       </div>
       <div className="mt-6 flex items-center justify-between font-mono text-[10px] uppercase tracking-widest2 text-bone-fog">
-        <span>© cipher_audit · internal review build</span>
+        <span>© virgil · internal review build</span>
         <span>built for analysts · not attackers</span>
       </div>
     </footer>

@@ -26,6 +26,7 @@ class TrivyAdapter:
     def command(self, repo_path: Path, out_dir: Path) -> list[str]:
         return [
             "trivy", "fs",
+            "--skip-db-update", "--skip-java-db-update",
             "--scanners", "vuln,misconfig,secret,license",
             "--format", "json",
             "--output", str(out_dir / "trivy.json"),

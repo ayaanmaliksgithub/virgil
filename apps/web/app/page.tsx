@@ -1,19 +1,13 @@
-import Link from "next/link";
 import { SubmissionForm } from "@/components/submission-form";
-import { TrySample } from "@/components/try-sample";
-import { DEMO_SCAN_URL } from "@/lib/server";
 
-/* Hand-cut banner — renders the platform mark in a chunky figlet style. */
+/* Hand-cut banner — ANSI Shadow figlet, chunky and on-theme. */
 const BANNER = `\
-   ▄████████  ▄█     ▄███████▄    ▄█    █▄       ▄████████    ▄████████
-  ███    ███ ███    ███    ███   ███    ███     ███    ███   ███    ███
-  ███        ███▌   ███    ███   ███    ███     ███    █▀    ███    ███
-  ███        ███▌   ███    ███  ▄███▄▄▄▄███▄▄  ▄███▄▄▄      ▄███▄▄▄▄██▀
-  ███        ███▌ ▀█████████▀  ▀▀███▀▀▀▀███▀  ▀▀███▀▀▀     ▀▀███▀▀▀▀▀
-  ███    █▄  ███    ███          ███    ███     ███    █▄  ▀███████████
-  ███    ███ ███    ███          ███    ███     ███    ███   ███    ███
-  ████████▀  █▀    ▄████▀        ███    █▀      ██████████   ███    ███
-                                                             ███    ███`;
+██╗   ██╗██╗██████╗  ██████╗ ██╗██╗     
+██║   ██║██║██╔══██╗██╔════╝ ██║██║     
+██║   ██║██║██████╔╝██║  ███╗██║██║     
+╚██╗ ██╔╝██║██╔══██╗██║   ██║██║██║     
+ ╚████╔╝ ██║██║  ██║╚██████╔╝██║███████╗
+  ╚═══╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝╚══════╝`;
 
 export default function Landing() {
   return (
@@ -24,16 +18,16 @@ export default function Landing() {
           <div className="term-label">offset 0x00000000 · masthead</div>
         </div>
         <div className="col-span-12 flex flex-wrap items-baseline gap-x-6 gap-y-1 font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost md:col-span-6 md:justify-end">
-          <span>build 2026.05.15</span>
+          <span>build 2026.05.21</span>
           <span className="text-ink-400">·</span>
-          <span>rev <span className="text-bone-mute">9f3c1d8</span></span>
+          <span>rev <span className="text-bone-mute">a4f0e2c</span></span>
           <span className="text-ink-400">·</span>
           <span>sig <span className="text-signal-live">ok</span></span>
         </div>
       </div>
 
       <section className="overflow-hidden border-y border-ink-300 py-8">
-        <pre aria-hidden className="text-[clamp(8px,1vw,11px)] leading-[1.05] text-bone-dim">
+        <pre aria-hidden className="text-[clamp(8px,1vw,12px)] leading-[1.05] text-bone-dim whitespace-pre">
 {BANNER}
         </pre>
         <div className="mt-6 grid grid-cols-12 gap-x-6 gap-y-3">
@@ -60,9 +54,10 @@ export default function Landing() {
             <span className="text-bone-ghost">{"{}"}</span>
           </h2>
           <p className="mt-5 max-w-[42ch] font-mono text-[13px] leading-snug text-bone-dim">
-            <span className="text-bone-ghost">{"//"}</span> submit a public github repo or upload a zip.
-            the worker provisions a per-job sandbox and runs semgrep · trivy · gitleaks, then
-            correlates output into a normalized ledger of findings.
+            <span className="text-bone-ghost">{"//"}</span> submit a public or private github repo, or upload a zip.
+            an isolated sandbox runs a multi-engine static, dependency, and secret
+            analysis. results are correlated into a single ledger with severity, business
+            impact, and concrete remediation guidance for each finding.
           </p>
 
           <pre className="mt-8 overflow-x-auto border border-ink-300 bg-ink-50 px-4 py-3 text-[11px] leading-[20px] text-bone-mute">
@@ -75,22 +70,12 @@ export default function Landing() {
     ttl      = 600s;
 };`}
           </pre>
+
+          <PrivateRepoGuide />
         </div>
 
         <div className="col-span-12 mt-10 md:col-span-7 md:mt-0">
           <SubmissionForm />
-          <div className="mt-4">
-            <TrySample url={DEMO_SCAN_URL} />
-          </div>
-          <div className="mt-3 flex items-center justify-end">
-            <Link
-              href="/audits/demo"
-              className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest2 text-bone-mute transition-colors hover:text-signal-live"
-            >
-              <span aria-hidden className="text-ink-400">→</span>
-              inspect_design_fixture()
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -147,6 +132,65 @@ export default function Landing() {
         </ul>
       </section>
     </div>
+  );
+}
+
+function PrivateRepoGuide() {
+  return (
+    <aside className="mt-8 border border-ink-300 bg-ink-50">
+      <div className="flex items-center justify-between border-b border-ink-300 px-4 py-2 font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
+        <span>private_repos() · pat_token guide</span>
+        <span className="text-signal-live">man(1)</span>
+      </div>
+      <div className="px-4 py-4 font-mono text-[12px] leading-relaxed">
+        <p className="text-bone-dim">
+          <span className="text-bone-ghost">{"//"}</span> for private targets, attach a github
+          personal-access token in <span className="text-signal-live">pat_token</span> on the form.
+          virgil encrypts it at rest (fernet) and decrypts only at clone time. never sent to the llm.
+        </p>
+
+        <ol className="mt-4 space-y-[6px] text-bone-mute">
+          <li className="flex gap-3">
+            <span className="text-ink-400 tabular">01</span>
+            <span>
+              open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noreferrer" className="text-bone underline decoration-bone-ghost underline-offset-2 hover:text-signal-live">github.com/settings/personal-access-tokens</a>
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-ink-400 tabular">02</span>
+            <span>generate new token · <span className="text-bone">fine-grained</span></span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-ink-400 tabular">03</span>
+            <span>repository access · only-select-repositories · pick target</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-ink-400 tabular">04</span>
+            <span>permissions · grant the two below</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-ink-400 tabular">05</span>
+            <span>expiration · <span className="text-bone">7–30d</span> recommended</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-ink-400 tabular">06</span>
+            <span>copy token · paste into <span className="text-signal-live">pat_token</span> · exec audit</span>
+          </li>
+        </ol>
+
+        <pre className="mt-4 border border-ink-300 bg-ink px-3 py-3 text-[11px] leading-[18px] text-bone-mute whitespace-pre">
+{`permission       access     note
+──────────────   ────────   ─────────────
+repository.contents  read     source tree
+repository.metadata  read     required by github`}
+        </pre>
+
+        <p className="mt-4 text-[11px] leading-snug text-bone-mute">
+          <span className="text-bone-ghost">{"//"}</span> classic PATs work too — scope:{" "}
+          <span className="text-bone">repo</span>. fine-grained is preferred (least privilege).
+        </p>
+      </div>
+    </aside>
   );
 }
 

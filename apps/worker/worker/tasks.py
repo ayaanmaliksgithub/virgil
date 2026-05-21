@@ -81,7 +81,7 @@ def run_audit(self, audit_id: str) -> None:
                 # need it simply ignore it.
                 if hasattr(adapter, "host_repo_path"):
                     adapter.host_repo_path = repo_dir
-                cmd = adapter.command(Path("/repo"), Path("/out") / adapter.name)
+                cmd = adapter.command(Path("/repo"), Path("/out"))
                 extra_mounts = list(getattr(adapter, "extra_mounts", []) or [])
                 try:
                     res = run_scanner(
@@ -141,12 +141,23 @@ def run_audit(self, audit_id: str) -> None:
             from worker.normalize.code_context import enrich_with_code_context
             normalized = enrich_with_code_context(normalized, repo_dir)
 
-            _phase(db, audit, AuditPhase.REPORTING, "Generating LLM enrichment & narrative")
+            _phase(db, audit, AuditPhase.REPORTING, f"Enriching {len(normalized)} findings via LLM")
+            # Throttled progress callback: log every Nth finding so the console
+            # shows a live counter instead of staring at "reporting" for minutes.
+            _enrich_total = len(normalized)
+            _enrich_step = max(1, _enrich_total // 10)  # ~10 ticks across the loop
+            def _enrich_progress(i: int, total: int):
+                if i == 1 or i == total or i % _enrich_step == 0:
+                    _event(db, audit, AuditPhase.REPORTING,
+                           f"Enriching findings: {i}/{total}", level="info")
             try:
-                normalized = enrich_findings(normalized, profile=profile)
+                normalized = enrich_findings(normalized, profile=profile, progress_cb=_enrich_progress)
+                _event(db, audit, AuditPhase.REPORTING,
+                       f"Enrichment complete — {_enrich_total} findings", level="info")
             except Exception as e:  # LLM is best-effort; never block the audit
                 _event(db, audit, AuditPhase.REPORTING,
                        f"LLM enrichment skipped: {type(e).__name__}", level="warning")
+            _event(db, audit, AuditPhase.REPORTING, "Writing audit narrative", level="info")
             try:
                 narrative = build_narrative(normalized, profile=profile)
                 if narrative:

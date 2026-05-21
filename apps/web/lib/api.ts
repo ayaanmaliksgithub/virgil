@@ -6,7 +6,11 @@
 import type { Finding, Audit, ChatResponse, ReportPayload } from "./types";
 import { DEMO_AUDIT, DEMO_FINDINGS, DEMO_REPORT, demoChat } from "./demo";
 
-const BASE = "/api";
+// Browser: hit Next.js, which rewrites /api/* to the FastAPI base.
+// SSR (node): Next rewrites do not apply to internal fetch(); use the api host directly.
+const BASE = typeof window === "undefined"
+  ? (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000")
+  : "/api";
 
 export class ApiError extends Error {
   constructor(public status: number, public detail?: string) {
@@ -215,11 +219,13 @@ export async function getReport(
   return http<ReportPayload>(`/v1/audits/${id}/report?view=${view}&format=json`);
 }
 
-export async function submitUrl(repo_url: string): Promise<Audit> {
+export async function submitUrl(repo_url: string, github_token?: string): Promise<Audit> {
+  const body: Record<string, string> = { repo_url };
+  if (github_token) body.github_token = github_token;
   const res = await fetch(BASE + "/v1/audits/json", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ repo_url }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
   return res.json();

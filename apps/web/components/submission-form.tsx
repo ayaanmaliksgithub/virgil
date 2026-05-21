@@ -11,6 +11,7 @@ export function SubmissionForm() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("url");
   const [url, setUrl] = useState("");
+  const [token, setToken] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +21,7 @@ export function SubmissionForm() {
     setBusy(true); setError(null);
     try {
       const audit = mode === "url"
-        ? await submitUrl(url.trim())
+        ? await submitUrl(url.trim(), token.trim() || undefined)
         : file ? await submitZip(file) : Promise.reject(new Error("Select a .zip"));
       const a = await audit;
       router.push(`/audits/${a.id}`);
@@ -46,24 +47,51 @@ export function SubmissionForm() {
 
       <div className="px-5 py-5">
         {mode === "url" ? (
-          <label className="block">
-            <div className="term-label">target.scheme</div>
-            <div className="mt-3 flex items-baseline gap-3 border-b border-ink-400 pb-2">
-              <span className="font-mono text-[12px] tracking-widest2 text-bone-ghost">https://</span>
-              <input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="github.com/owasp/nodegoat"
-                spellCheck={false}
-                className="w-full bg-transparent font-mono text-[15px] text-bone caret-signal-live outline-none placeholder:text-bone-fog"
-                autoFocus
-              />
-            </div>
-            <p className="mt-3 font-mono text-[11px] leading-snug text-bone-mute">
-              <span className="text-bone-ghost">{"//"}</span> public repos only. clone runs in
-              isolated sandbox; scan phase is <span className="text-signal-live">--network=none</span>.
-            </p>
-          </label>
+          <>
+            <label className="block">
+              <div className="term-label">target.scheme</div>
+              <div className="mt-3 flex items-baseline gap-3 border-b border-ink-400 pb-2">
+                <span className="font-mono text-[12px] tracking-widest2 text-bone-ghost">https://</span>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="github.com/ayaanmaliksgithub/virgil"
+                  spellCheck={false}
+                  className="w-full bg-transparent font-mono text-[15px] text-bone caret-signal-live outline-none placeholder:text-bone-fog"
+                  autoFocus
+                />
+              </div>
+              <p className="mt-3 font-mono text-[11px] leading-snug text-bone-mute">
+                <span className="text-bone-ghost">{"//"}</span> public + private repos.
+                clone runs in an isolated sandbox; scan phase is{" "}
+                <span className="text-signal-live">--network=none</span>.
+              </p>
+            </label>
+
+            <label className="mt-6 block">
+              <div className="term-label">
+                pat_token
+                <span className="ml-2 text-bone-fog">// optional · private repos only</span>
+              </div>
+              <div className="mt-3 flex items-baseline gap-3 border-b border-ink-400 pb-2">
+                <span className="font-mono text-[12px] tracking-widest2 text-bone-ghost">github_pat_</span>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="•••••••••••••••• ·  unset = public-only"
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="w-full bg-transparent font-mono text-[15px] text-bone caret-signal-live outline-none placeholder:text-bone-fog"
+                />
+              </div>
+              <p className="mt-3 font-mono text-[11px] leading-snug text-bone-mute">
+                <span className="text-bone-ghost">{"//"}</span> encrypted at rest (fernet),
+                decrypted only at clone time. never sent to the llm.{" "}
+                <span className="text-signal-live">→ see guide ↙</span>
+              </p>
+            </label>
+          </>
         ) : (
           <ZipField file={file} setFile={setFile} />
         )}

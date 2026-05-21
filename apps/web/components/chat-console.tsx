@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { streamChat, type StreamChatHandle, type SuggestedQuestion } from "@/lib/api";
+import { postChat, type SuggestedQuestion } from "@/lib/api";
 import type { ChatTurn, Finding } from "@/lib/types";
 
 /**
- * Ask-the-Auditor terminal.
- *
- * Transcript renders like an `irssi`/`mosh` log — each turn is prefixed with
- * `user@audit$` or `auditor>` and timestamps; citations resolve to links to the
- * underlying finding detail pages.
+ * Chat with Virgil — a terminal-styled conversation grounded in the audit's
+ * findings. Posts to the non-streaming /chat endpoint and renders the full
+ * answer once received (kept simple to dodge dev-server SSE buffering).
  */
 export function ChatConsole({
   auditId,
@@ -27,73 +25,52 @@ export function ChatConsole({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Live-streaming assistant text rendered into the transcript *before* the
-  // `done` frame arrives. Once `done` lands, the official ChatTurn from the
-  // server replaces this draft so safety-validated refusals never leave
-  // partial unsafe output on screen.
-  const [streamingText, setStreamingText] = useState<string>("");
-  const streamRef = useRef<StreamChatHandle | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight });
-  }, [history, busy, streamingText]);
+  }, [history, busy]);
 
-  // Cancel any in-flight stream if the component unmounts mid-response.
-  useEffect(() => () => { streamRef.current?.cancel(); }, []);
-
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const msg = input.trim();
     if (!msg || busy) return;
-    setBusy(true); setError(null); setStreamingText("");
+    setBusy(true); setError(null);
     setHistory((h) => [
       ...h,
       { id: `tmp-${Date.now()}`, role: "user", content: msg, citations: [], created_at: new Date().toISOString() },
     ]);
     setInput("");
-
-    streamRef.current = streamChat(auditId, msg, sessionId, {
-      onSession: (sid) => setSessionId(sid),
-      onToken: (text) => setStreamingText((s) => s + text),
-      onDone: (res) => {
-        // `history` from the server is authoritative — it includes both turns
-        // with their canonical IDs and (for the assistant) the post-safety
-        // text. Drop our draft entirely; the server's version supersedes it.
-        setHistory(res.history);
-        setStreamingText("");
-        setBusy(false);
-        streamRef.current = null;
-      },
-      onError: (detail) => {
-        setError(detail || "chat error");
-        setStreamingText("");
-        setBusy(false);
-        streamRef.current = null;
-      },
-    });
+    try {
+      const res = await postChat(auditId, msg, sessionId);
+      setSessionId(res.session_id);
+      setHistory(res.history);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "request failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div className="grid grid-cols-12 gap-x-6">
       <div className="col-span-12 lg:col-span-8">
         <div className="panel pt-4">
-          <span className="panel-title">ask_auditor() · session={sessionId?.slice(0, 8) ?? "new"}</span>
+          <span className="panel-title">virgil · session={sessionId?.slice(0, 8) ?? "new"}</span>
 
-          {/* TRANSCRIPT */}
           <div
             ref={scrollerRef}
-            className="max-h-[520px] min-h-[320px] overflow-y-auto px-5 py-4 font-mono text-[13px] leading-[1.7]"
+            className="max-h-[560px] min-h-[340px] overflow-y-auto px-5 py-4 font-mono text-[13px] leading-[1.7]"
           >
             {history.length === 0 && (
               <div className="text-bone-mute">
-                <div className="text-bone-ghost">{"//"} no messages yet</div>
-                {suggested.length > 0 ? (
+                <div className="text-bone-ghost">{"//"} type a question below to start.</div>
+                {suggested.length > 0 && (
                   <>
-                    <div className="mt-2 text-bone-mute">
-                      starter prompts derived from this audit's top clusters — click to load:
+                    <div className="mt-4 text-[10px] uppercase tracking-widest2 text-bone-ghost">
+                      derived from your top clusters
                     </div>
-                    <ul className="mt-3 space-y-2">
+                    <ul className="mt-2 space-y-2">
                       {suggested.map((q, i) => (
                         <li key={i}>
                           <button
@@ -116,14 +93,7 @@ export function ChatConsole({
                       ))}
                     </ul>
                   </>
-                ) : (
-                  <div className="mt-2 text-bone-mute">
-                    ask about a finding, category, or affected file.
-                  </div>
                 )}
-                <div className="mt-6 border-l-2 border-signal-critical pl-3 text-bone-mute">
-                  <span className="font-mono text-[10px] uppercase tracking-widest2 text-signal-critical">policy</span> the auditor refuses exploit-shaped requests. it will not produce payloads, exact patches, diffs, or step-by-step reproduction.
-                </div>
               </div>
             )}
 
@@ -131,25 +101,9 @@ export function ChatConsole({
               <Turn key={t.id || i} turn={t} auditId={auditId} findings={findings} />
             ))}
 
-            {/* Live streaming draft — replaced wholesale when `done` arrives. */}
-            {busy && streamingText && (
-              <div className="mt-4">
-                <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-[12px] text-signal-live">auditor&gt;</span>
-                  <span className="font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
-                    streaming
-                  </span>
-                </div>
-                <div className="mt-1 whitespace-pre-wrap font-mono text-[13px] leading-[1.7] text-bone-dim">
-                  {streamingText}
-                  <span className="term-cursor" />
-                </div>
-              </div>
-            )}
-
-            {busy && !streamingText && (
+            {busy && (
               <div className="mt-3 font-mono text-[12px] text-bone-mute">
-                <span className="text-signal-live">auditor&gt;</span> thinking
+                <span className="text-signal-live">virgil&gt;</span> thinking
                 <span className="term-cursor" />
               </div>
             )}
@@ -161,13 +115,12 @@ export function ChatConsole({
             </div>
           )}
 
-          {/* PROMPT */}
           <form onSubmit={onSubmit} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-t border-ink-300 bg-ink px-5 py-3 font-mono text-[13px]">
-            <span className="text-signal-live">user@audit$</span>
+            <span className="text-signal-live">user&gt;</span>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="ask the auditor…"
+              placeholder="ask a question about this audit…"
               disabled={busy}
               spellCheck={false}
               className="w-full bg-transparent text-bone caret-signal-live outline-none placeholder:text-bone-fog disabled:text-bone-mute"
@@ -189,29 +142,30 @@ export function ChatConsole({
         </div>
       </div>
 
-      <aside className="col-span-12 lg:col-span-4 mt-6 lg:mt-0">
-        <div className="term-label mb-2">policy</div>
-        <ul className="panel pt-4 text-[12px]">
-          <span className="panel-title">contract</span>
-          {POLICY.map((p) => (
-            <li key={p.label} className="grid grid-cols-[auto_1fr] gap-3 border-b border-ink-300 px-4 py-2 last:border-b-0 font-mono text-bone-mute">
-              <span className="text-signal-live">✓</span> {p.label}
-            </li>
-          ))}
-          {NEVER.map((p) => (
-            <li key={p} className="grid grid-cols-[auto_1fr] gap-3 border-b border-ink-300 px-4 py-2 last:border-b-0 font-mono text-bone-mute">
-              <span className="text-signal-critical">✕</span> {p}
-            </li>
-          ))}
-        </ul>
+      <aside className="col-span-12 lg:col-span-4 mt-6 lg:mt-0 space-y-6">
+        <div>
+          <div className="term-label mb-2">how virgil answers</div>
+          <ul className="panel pt-4 text-[12px]">
+            <span className="panel-title">contract</span>
+            {DOES.map((line) => (
+              <li key={line} className="grid grid-cols-[auto_1fr] gap-3 border-b border-ink-300 px-4 py-2 last:border-b-0 font-mono text-bone-mute">
+                <span className="text-signal-live">✓</span> {line}
+              </li>
+            ))}
+            {DOESNT.map((line) => (
+              <li key={line} className="grid grid-cols-[auto_1fr] gap-3 border-b border-ink-300 px-4 py-2 last:border-b-0 font-mono text-bone-mute">
+                <span className="text-signal-critical">✕</span> {line}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <div className="mt-6">
-          <div className="term-label mb-2">grounded.in</div>
+        <div>
+          <div className="term-label mb-2">what virgil sees</div>
           <p className="border-l border-ink-300 pl-3 font-mono text-[12px] leading-[1.7] text-bone-mute">
-            <span className="text-bone-ghost">{"//"}</span> the auditor sees only this audit's
-            findings — title, category, evidence (redacted), and the
-            scanner-derived metadata. it has no access to the raw repo, no
-            web browsing, and no other audits.
+            <span className="text-bone-ghost">{"//"}</span> only this audit's findings: title, category,
+            evidence (with secrets redacted), and the scanner metadata. no repo source, no web,
+            no other audits, no chat history beyond this session.
           </p>
         </div>
       </aside>
@@ -226,7 +180,7 @@ function Turn({ turn, auditId, findings }: { turn: ChatTurn; auditId: string; fi
     <div className="mt-4 first:mt-0">
       <div className="flex items-baseline gap-3">
         <span className={clsx("font-mono text-[12px]", isUser ? "text-bone" : "text-signal-live")}>
-          {isUser ? "user@audit$" : "auditor>"}
+          {isUser ? "user>" : "virgil>"}
         </span>
         <span className="font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
           {fmtTs(turn.created_at)}
@@ -246,7 +200,7 @@ function Turn({ turn, auditId, findings }: { turn: ChatTurn; auditId: string; fi
                 href={`/audits/${auditId}/findings/${cid}`}
                 className="inline-flex items-baseline gap-2 border border-ink-300 px-2 py-[1px] font-mono text-[10px] uppercase tracking-widest2 text-bone-mute hover:border-signal-live hover:text-signal-live"
               >
-                <span className="text-signal-live">[{cid}]</span>
+                <span className="text-signal-live">[{cid.slice(0,8)}]</span>
                 <span className="normal-case tracking-normal text-bone-mute truncate max-w-[24ch]">
                   {f ? f.title : "finding"}
                 </span>
@@ -268,16 +222,14 @@ function fmtTs(iso: string) {
   }
 }
 
-const POLICY = [
-  { label: "answers grounded in this audit's findings only" },
-  { label: "citations resolve to specific finding ids" },
-  { label: "refuses questions it can't answer from cited context" },
-  { label: "every output passes the safety validator" },
+const DOES = [
+  "answers come from this audit's findings",
+  "every claim cites the finding it came from",
+  "says 'I don't know' rather than guessing",
 ];
 
-const NEVER = [
-  "no exploit payloads or PoCs",
-  "no exact patches or diffs",
-  "no step-by-step reproduction",
-  "no operational attack guidance",
+const DOESNT = [
+  "writes exploits or proofs-of-concept",
+  "hands out exact patches or code diffs",
+  "reproduces an attack step-by-step",
 ];

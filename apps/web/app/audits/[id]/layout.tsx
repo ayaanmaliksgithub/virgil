@@ -3,9 +3,8 @@
  * banner when the id is the `demo` design fixture, so a visitor never
  * mistakes the baked TS-fixture data for a real scan.
  *
- * The fixture exists for design review without a backend; the real demo
- * experience is the homepage's "run sample scan" button against OWASP
- * NodeGoat, which submits through the live pipeline.
+ * The fixture exists for design review without a backend; real audits
+ * are produced by submitting a repo URL or zip from the homepage.
  */
 import Link from "next/link";
 
@@ -30,7 +29,7 @@ export default function AuditLayout({
             You're viewing baked sample data so the design renders without a backend.
             Numbers and findings are illustrative.{" "}
             <Link href="/" className="text-bone hover:text-signal-live">
-              ← run a real scan from the homepage
+              ← submit a repo from the homepage
             </Link>{" "}
             to see actual scanner output.
           </p>

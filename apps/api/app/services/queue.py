@@ -14,4 +14,4 @@ celery_app = Celery("api-client", broker=_settings.redis_url, backend=_settings.
 
 
 def enqueue_audit(audit_id: str) -> None:
-    celery_app.send_task("worker.tasks.run_audit", args=[audit_id])
+    celery_app.send_task("worker.tasks.run_audit", args=[audit_id], queue="audits")

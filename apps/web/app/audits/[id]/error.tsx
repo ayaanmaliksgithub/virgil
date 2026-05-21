@@ -37,7 +37,7 @@ export default function AuditError({
 
       <pre aria-hidden className="mt-6 text-[10px] leading-[1.2] text-ink-400">
 {`┌──────────────────────────────────────────────────┐
-│  ${isOffline ? "ECONNREFUSED  api.cipher_audit:8000" : "EINTERNAL     audit route raised        "} │
+│  ${isOffline ? "ECONNREFUSED  api.virgil:8000" : "EINTERNAL     audit route raised        "} │
 └──────────────────────────────────────────────────┘`}
       </pre>
 

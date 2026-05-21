@@ -47,7 +47,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Potential unauthorized access to cloud resources, billing exposure, and data loss; severity depends on the role attached to the credential.",
     safe_guidance:
       "Rotate the credential, move secrets to a managed secret store, and add pre-commit secret scanning. Audit recent CloudTrail activity for the key.",
-    source_tool: ["gitleaks", "trivy"],
+    source_tool: ["secret scan", "dependency scan"],
     status: "open",
     created_at: "2026-05-15T19:45:12Z",
   },
@@ -72,7 +72,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Account enumeration and authentication bypass are plausible if this query is exposed to unauthenticated callers.",
     safe_guidance:
       "Constrain the field to a string at the schema layer and reject unexpected operator shapes. Add explicit input validation on the route boundary.",
-    source_tool: ["semgrep"],
+    source_tool: ["static analysis"],
     status: "open",
     created_at: "2026-05-15T19:45:13Z",
   },
@@ -95,7 +95,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Prototype pollution can yield denial-of-service or property-confusion conditions depending on how application objects are constructed.",
     safe_guidance:
       "Upgrade lodash to a patched release line and re-resolve transitive dependents. Track via your SBOM workflow.",
-    source_tool: ["trivy"],
+    source_tool: ["dependency scan"],
     status: "open",
     created_at: "2026-05-15T19:45:13Z",
   },
@@ -118,7 +118,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Cross-site requests from a victim browser could trigger unintended state changes if a session cookie is present.",
     safe_guidance:
       "Apply CSRF protection consistently across all state-changing routes; centralize the middleware so coverage is verifiable.",
-    source_tool: ["semgrep"],
+    source_tool: ["static analysis"],
     status: "open",
     created_at: "2026-05-15T19:45:14Z",
   },
@@ -141,7 +141,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Expanded blast radius if the application is exploited at runtime, particularly when combined with kernel-level escapes.",
     safe_guidance:
       "Introduce a non-root user in the image and adopt a minimal base. Enforce via your CI policy and image scanner.",
-    source_tool: ["trivy"],
+    source_tool: ["dependency scan"],
     status: "open",
     created_at: "2026-05-15T19:45:14Z",
   },
@@ -164,7 +164,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Effective authentication bypass for any flow that trusts these tokens.",
     safe_guidance:
       "Rotate the signing key to a high-entropy value sourced from a secret manager, and shorten token lifetimes.",
-    source_tool: ["gitleaks", "semgrep"],
+    source_tool: ["secret scan", "static analysis"],
     status: "open",
     created_at: "2026-05-15T19:45:15Z",
   },
@@ -187,7 +187,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Brand trust impact; can amplify phishing campaigns that abuse your domain.",
     safe_guidance:
       "Constrain redirect targets to an allowlist of internal paths and reject external schemes.",
-    source_tool: ["semgrep"],
+    source_tool: ["static analysis"],
     status: "open",
     created_at: "2026-05-15T19:45:16Z",
   },
@@ -210,7 +210,7 @@ export const DEMO_FINDINGS: Finding[] = [
       "Secondary exposure surface for any sensitive submitted field; affects retention/incident playbooks.",
     safe_guidance:
       "Redact known-sensitive fields before logging and forward through a structured logger with field filtering.",
-    source_tool: ["semgrep"],
+    source_tool: ["static analysis"],
     status: "open",
     created_at: "2026-05-15T19:45:17Z",
   },

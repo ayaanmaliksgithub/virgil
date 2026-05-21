@@ -1,5 +1,19 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import type { Phase } from "@/lib/types";
+
+/**
+ * Live phase ledger for a running audit.
+ *
+ * Polls /api/v1/audits/[id] every 1.5s for state+phase. Stops when the audit
+ * reaches a terminal state. On succeeded → soft-redirects to /report.
+ *
+ * Polling instead of SSE because dev-server-proxied EventSource updates were
+ * unreliable in practice — a 600-byte JSON poll every 1.5s is fine.
+ */
 
 const PHASES: { key: Phase; label: string; n: string }[] = [
   { key: "queued",      label: "queued",      n: "0x00" },
@@ -17,7 +31,6 @@ function indexOf(p: Phase): number {
 }
 
 const BAR_WIDTH = 26;
-
 function bar(done: number, active: boolean) {
   const filled = Math.round((done / (PHASES.length - 1)) * BAR_WIDTH);
   const head = active ? "▒" : "";
@@ -26,9 +39,59 @@ function bar(done: number, active: boolean) {
   return `${lead}${head}${rest}`;
 }
 
-export function PhaseTimeline({ current, failed }: { current: Phase; failed?: boolean }) {
-  const idx = indexOf(current);
-  const running = !failed && current !== "completed";
+export function PhaseTimeline({
+  auditId,
+  current,
+  failed,
+}: {
+  auditId: string;
+  current: Phase;
+  failed?: boolean;
+}) {
+  const router = useRouter();
+  const [phase, setPhase]   = useState<Phase>(current);
+  const [hasFailed, setFailed] = useState<boolean>(!!failed);
+
+  useEffect(() => {
+    if (!auditId || auditId === "demo") return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
+        if (!r.ok) throw new Error(String(r.status));
+        const a = await r.json();
+        if (cancelled) return;
+        if (a.phase) setPhase(a.phase as Phase);
+        if (a.state === "failed") setFailed(true);
+        if (a.state === "succeeded") {
+          // Soft handoff to the report view; small grace so the ledger ticks
+          // to "completed" before we navigate away.
+          setTimeout(() => {
+            if (!cancelled) router.replace(`/audits/${auditId}/report`);
+          }, 900);
+          return; // stop polling
+        }
+        if (a.state === "failed") return; // stop polling
+      } catch {
+        // network blip — just try again next tick
+      }
+      timer = setTimeout(poll, 1500);
+    };
+
+    // Start immediately; don't wait for the first 1.5s tick.
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [auditId, router]);
+
+  const idx = indexOf(phase);
+  const running = !hasFailed && phase !== "completed";
+
   return (
     <div className="panel pt-4">
       <span className="panel-title">phase_ledger</span>
@@ -36,7 +99,7 @@ export function PhaseTimeline({ current, failed }: { current: Phase; failed?: bo
       <div className="flex items-baseline justify-between border-b border-ink-300 px-5 py-3 font-mono text-[11px]">
         <span className="flex items-center gap-3">
           <span className="text-bone-ghost uppercase tracking-widest2">progress</span>
-          <span className={clsx("tabular", failed ? "text-signal-critical" : "text-signal-live")}>
+          <span className={clsx("tabular", hasFailed ? "text-signal-critical" : "text-signal-live")}>
             [{bar(idx, running)}]
           </span>
         </span>
@@ -48,7 +111,7 @@ export function PhaseTimeline({ current, failed }: { current: Phase; failed?: bo
       <ol>
         {PHASES.map((p, i) => {
           const state =
-            failed && i === idx ? "failed"
+            hasFailed && i === idx ? "failed"
             : i < idx ? "done"
             : i === idx ? "active"
             : "pending";
@@ -62,26 +125,18 @@ export function PhaseTimeline({ current, failed }: { current: Phase; failed?: bo
             >
               <span className="text-ink-400 tabular text-[10px] uppercase tracking-widest2">{p.n}</span>
               <span className={clsx("text-center", glyphClass(state))}>{glyph(state)}</span>
-              <span
-                className={clsx(
-                  "uppercase tracking-widest2 text-[11px]",
-                  state === "active" && "text-bone",
-                  state === "done" && "text-bone-mute",
-                  state === "pending" && "text-bone-ghost",
-                  state === "failed" && "text-signal-critical",
-                )}
-              >
-                {p.label}
-              </span>
+              <span className={clsx(
+                "uppercase tracking-widest2 text-[11px]",
+                state === "active"  && "text-bone",
+                state === "done"    && "text-bone-mute",
+                state === "pending" && "text-bone-ghost",
+                state === "failed"  && "text-signal-critical",
+              )}>{p.label}</span>
               <span className="justify-self-end font-mono text-[10px] uppercase tracking-widest2 text-bone-ghost">
-                {state === "done" && "[ ok ]"}
-                {state === "active" && (
-                  <span className="text-signal-live">
-                    [ run · <span className="animate-pulse">…</span> ]
-                  </span>
-                )}
+                {state === "done"    && "[ ok ]"}
+                {state === "active"  && <span className="text-signal-live">[ run · <span className="animate-pulse">…</span> ]</span>}
                 {state === "pending" && "[ waiting ]"}
-                {state === "failed" && <span className="text-signal-critical">[ failed ]</span>}
+                {state === "failed"  && <span className="text-signal-critical">[ failed ]</span>}
               </span>
             </li>
           );

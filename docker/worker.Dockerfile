@@ -1,4 +1,9 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS base
+# WeasyPrint native deps (executive + technical PDF reports).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+      libffi8 libharfbuzz0b shared-mime-info fonts-dejavu \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \

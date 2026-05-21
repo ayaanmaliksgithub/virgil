@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 
+from typing import Callable
 from audit_core import Finding, RepoProfile
 
 from worker.ai.prompts.system import AUDITOR_SYSTEM
@@ -38,7 +39,7 @@ DEFENSIVE_FALLBACK = (
 )
 
 
-def enrich_findings(findings: list[Finding], *, profile: RepoProfile) -> list[Finding]:
+def enrich_findings(findings: list[Finding], *, profile: RepoProfile, progress_cb: Callable[[int, int], None] | None = None) -> list[Finding]:
     provider = get_provider()
     if provider.name == "null":
         return findings  # graceful degradation
@@ -51,7 +52,8 @@ def enrich_findings(findings: list[Finding], *, profile: RepoProfile) -> list[Fi
     }
 
     out: list[Finding] = []
-    for f in findings:
+    total = len(findings)
+    for i, f in enumerate(findings, 1):
         user = _build_user_prompt(f, profile_blob)
         try:
             data = provider.complete_json(
@@ -77,6 +79,11 @@ def enrich_findings(findings: list[Finding], *, profile: RepoProfile) -> list[Fi
             "exploitability_summary": exploitability or None,
             "safe_guidance": guidance,
         }))
+        if progress_cb is not None:
+            try:
+                progress_cb(i, total)
+            except Exception:
+                pass
     return out
 
 

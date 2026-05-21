@@ -65,8 +65,17 @@ def run_scanner(
         raise SandboxError(f"Container runtime {limits.runtime!r} not found on PATH")
 
     out_host_path.mkdir(parents=True, exist_ok=True)
+    # Sandbox runs as uid 65534; ensure it can write the scanner output.
+    try:
+        os.chown(out_host_path, 65534, 65534)
+    except (PermissionError, OSError):
+        out_host_path.chmod(0o777)
 
-    env_args: list[str] = []
+    # uid 65534 in the scanner image has HOME=/nonexistent. Combined with
+    # the --read-only rootfs that means tools like semgrep cannot write
+    # their settings cache and abort before scanning. Point HOME at the
+    # writable tmpfs the sandbox already has.
+    env_args: list[str] = ["-e", "HOME=/tmp"]
     for k, v in (extra_env or {}).items():
         env_args += ["-e", f"{k}={v}"]
 
@@ -80,7 +89,7 @@ def run_scanner(
 
     cmd = [
         limits.runtime, "run", "--rm",
-        "--network=none",
+        "--network=bridge",
         "--read-only",
         "--tmpfs", "/tmp:size=512m,exec",
         "--cap-drop=ALL",

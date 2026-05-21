@@ -4,13 +4,14 @@
  * to the full `GroundingTrace` panel for the receipts.
  *
  * Rendered like:
- *   ┌─ from semgrep:javascript.express.nosql-injection-mongodb · src/x.py:L42 ¶ trace
+ *   ┌─ from static analysis:javascript.express.nosql-injection-mongodb · src/x.py:L42 ¶ trace
  *
  * The trailing `¶ trace` is a link that scrolls to `#provenance-{fid}`. The
  * tag itself is intentionally low-volume — we don't want it to overpower
  * the prose, just to make the lineage visible at a glance.
  */
 import type { Finding } from "@/lib/types";
+import { friendlyToolName } from "@/lib/tool-labels";
 
 export function ProvenanceTag({ finding }: { finding: Finding }) {
   const ruleId =
@@ -24,7 +25,7 @@ export function ProvenanceTag({ finding }: { finding: Finding }) {
       ?.id ??
     null;
 
-  const scanner = finding.source_tool[0] ?? "scanner";
+  const scanner = friendlyToolName(finding.source_tool[0]);
   const firstLine = finding.affected_lines?.[0];
   const fileLabel = firstLine
     ? `${firstLine.file}:L${firstLine.start}`

@@ -44,6 +44,11 @@ def clone_repo(
         raise CloneError(f"Container runtime {runtime!r} not found")
 
     dest.mkdir(parents=True, exist_ok=True)
+    # Sandbox runs as uid 65534; ensure it can write into the mounted work dir.
+    try:
+        os.chown(dest, 65534, 65534)
+    except (PermissionError, OSError):
+        dest.chmod(0o777)
     env_args: list[str] = ["-e", "GIT_TERMINAL_PROMPT=0"]
     cleanup_paths: list[Path] = []
     if github_token:
