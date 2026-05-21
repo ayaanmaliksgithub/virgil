@@ -7,16 +7,17 @@ hide signal a user wants to see (network down, server hung).
 """
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 from typing import Iterator
 
 import requests
 
+from cli import config
 
-DEFAULT_BASE_URL = "http://localhost:8000"
+
 HTTP_TIMEOUT = 30
+CHAT_TIMEOUT = 120  # LLM round-trips can sit well past the default.
 
 
 class ApiError(RuntimeError):
@@ -32,7 +33,7 @@ class ApiUnreachable(RuntimeError):
 
 
 def _base_url() -> str:
-    return os.environ.get("AI_SEC_AUDIT_API", DEFAULT_BASE_URL).rstrip("/")
+    return config.api_url().rstrip("/")
 
 
 def _request(method: str, path: str, **kwargs) -> requests.Response:
@@ -76,8 +77,73 @@ def list_findings(audit_id: str, *, include_suppressed: bool = False) -> list[di
     return _request("GET", f"/v1/audits/{audit_id}/findings", params=params).json()["items"]
 
 
-def get_clusters(audit_id: str) -> dict:
-    return _request("GET", f"/v1/audits/{audit_id}/findings/clusters").json()
+def get_clusters(audit_id: str, *, include_unreachable: bool = False) -> dict:
+    params = {"include_unreachable": "true"} if include_unreachable else {}
+    return _request("GET", f"/v1/audits/{audit_id}/findings/clusters", params=params).json()
+
+
+def get_finding(finding_id: str) -> dict:
+    return _request("GET", f"/v1/findings/{finding_id}").json()
+
+
+def get_suggested_questions(audit_id: str) -> list[str]:
+    return _request("GET", f"/v1/audits/{audit_id}/chat/suggested").json().get("items", [])
+
+
+def post_chat(audit_id: str, message: str, *, session_id: str | None = None) -> dict:
+    body: dict = {"message": message}
+    if session_id:
+        body["session_id"] = session_id
+    res = _request("POST", f"/v1/audits/{audit_id}/chat", json=body, timeout=CHAT_TIMEOUT)
+    return res.json()
+
+
+def post_chat_stream(audit_id: str, message: str, *, session_id: str | None = None) -> Iterator[dict]:
+    """Stream chat tokens as SSE.
+
+    Yields decoded events: `{"event": "session"|"token"|"done"|"error", "data": ...}`
+    where `data` is the already-JSON-decoded payload from the SSE frame.
+
+    On `done` the caller should replace whatever tokens were rendered with the
+    final `message.content`: the safety validator runs at end-of-stream and
+    may refuse — in which case the visible tokens are stale.
+    """
+    body: dict = {"message": message}
+    if session_id:
+        body["session_id"] = session_id
+    url = _base_url() + f"/v1/audits/{audit_id}/chat/stream"
+    try:
+        with requests.post(url, json=body, stream=True, timeout=CHAT_TIMEOUT) as res:
+            if not res.ok:
+                raise ApiError(res.status_code, res.text[:500])
+            event = "message"
+            data_lines: list[str] = []
+            for raw in res.iter_lines(decode_unicode=True):
+                if raw is None:
+                    continue
+                if raw == "":
+                    if data_lines:
+                        import json as _json
+                        joined = "\n".join(data_lines)
+                        try:
+                            payload = _json.loads(joined)
+                        except _json.JSONDecodeError:
+                            payload = {"raw": joined}
+                        yield {"event": event, "data": payload}
+                    event, data_lines = "message", []
+                    continue
+                if raw.startswith(":"):
+                    continue
+                if raw.startswith("event:"):
+                    event = raw[6:].strip()
+                elif raw.startswith("data:"):
+                    data_lines.append(raw[5:].lstrip(" "))
+    except requests.exceptions.ConnectionError as e:
+        raise ApiUnreachable(str(e)) from e
+
+
+def get_chat_session(audit_id: str, session_id: str) -> dict:
+    return _request("GET", f"/v1/audits/{audit_id}/chat/{session_id}").json()
 
 
 def get_report(audit_id: str, *, view: str = "technical", format: str = "json") -> bytes:

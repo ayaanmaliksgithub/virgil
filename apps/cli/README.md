@@ -24,8 +24,13 @@ is `docker compose up` from the [main repo](https://github.com/ayaanmaliksgithub
 ## Usage
 
 ```bash
-# Scan the current directory and wait for the result.
+# Scan and land on triage (counts → ranked clusters → next-steps hint).
 virgil scan .
+
+# Or land on a different surface after the scan finishes.
+virgil scan . --show report        # exec narrative
+virgil scan . --show surface       # languages / frameworks / IaC profile
+virgil scan . --show ask_virgil    # drop into the chat REPL pre-flighted
 
 # Scan a GitHub URL instead of a local path.
 virgil scan --url https://github.com/OWASP/NodeGoat
@@ -36,18 +41,39 @@ virgil scan . --base-sha abc1234 --head-sha def5678
 # Don't wait for the scan to finish; print the audit ID and return.
 virgil scan . --no-wait
 
-# Check on a previously-submitted scan.
-virgil status <audit-id>
+# After a scan, drill in:
+virgil clusters <audit-id>               # every cluster, sorted by severity
+virgil clusters <audit-id> --sev high    # filter
+virgil cluster  <audit-id> <key>         # one cluster in detail (prefix match ok)
+virgil findings <audit-id>               # raw findings table
+virgil chat     <audit-id>               # interactive Q&A grounded in this audit
+virgil chat     <audit-id> -m "what's the worst finding?"   # one-shot
+virgil open     <audit-id>               # launch the web app on the triage tab
+virgil open     <audit-id> --page chat   # …or chat / findings / report / attack-surface
+virgil status   <audit-id>
 
-# Print the findings table for a completed scan.
-virgil findings <audit-id>
-
-# Fetch the report in any supported format.
+# Reports in any supported format.
 virgil report <audit-id> --format md
 virgil report <audit-id> --format sarif -o findings.sarif
 virgil report <audit-id> --format json
 virgil report <audit-id> --format pdf
 ```
+
+## Config
+
+Persistent settings live in `~/.config/virgil/config.json`:
+
+```bash
+virgil config show
+virgil config set api_url=https://virgil.example.com/api
+virgil config set web_url=https://virgil.example.com
+virgil config set default_fail_on=high
+virgil config set default_post_scan_view=ask_virgil     # triage | report | surface | ask_virgil
+virgil config unset default_fail_on
+virgil config path
+```
+
+Resolution order for each setting: **env var → config file → built-in default.**
 
 ## CI integration
 
@@ -70,7 +96,11 @@ Exit codes:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `VIRGIL_API` | `http://localhost:8000` | API base URL. Set to a remote URL to scan against a non-local instance. |
+| `VIRGIL_API` | `http://localhost:8000` | API base URL. |
+| `VIRGIL_WEB` | `http://localhost:3000` | Web app base URL used by `virgil open`. |
+| `VIRGIL_FAIL_ON` | `critical` | Default `--fail-on` threshold for `virgil scan`. |
+| `VIRGIL_SHOW` | `triage` | Default `--show` surface after `virgil scan` (`triage` / `report` / `surface` / `ask_virgil`). |
+| `VIRGIL_CONFIG_DIR` | `~/.config/virgil` | Override the config directory. |
 
 ## What the output looks like
 
