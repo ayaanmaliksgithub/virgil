@@ -33,6 +33,37 @@ python3 -m pip install --user virgilhq
 The PyPI package is `virgilhq` (the bare `virgil` name was already taken).
 The command on your `$PATH` is still just `virgil`.
 
+### Standalone binaries (no Python required)
+
+Each GitHub Release ships single-file binaries built with PyInstaller, for
+folks who don't want a Python toolchain in the picture (and for the VS Code
+extension, which downloads one on first launch). Grab the right one for your
+machine from [Releases](https://github.com/ayaanmaliksgithub/virgil/releases):
+
+| File | For |
+| --- | --- |
+| `virgil-macos-arm64` | macOS, Apple Silicon |
+| `virgil-macos-x86_64` | macOS, Intel |
+| `virgil-linux-x86_64` | Linux x86_64 |
+| `virgil-windows-x86_64.exe` | Windows |
+
+```bash
+# macOS / Linux
+chmod +x virgil-macos-arm64
+./virgil-macos-arm64 --version
+```
+
+**macOS Gatekeeper.** The binaries are not (yet) Apple-notarized, so the
+first launch may be blocked with "cannot be opened because the developer
+cannot be verified." Either right-click → **Open** once, or strip the
+quarantine attribute:
+
+```bash
+xattr -d com.apple.quarantine ./virgil-macos-arm64
+```
+
+Notarization is planned; for now this is a one-time step per download.
+
 > **Why pipx and not `pip install`?** Modern Python distributions
 > (Homebrew Python, Debian/Ubuntu's python3, etc.) mark the system
 > interpreter as externally managed per

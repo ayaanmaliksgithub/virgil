@@ -1,0 +1,108 @@
+name: Build CLI binaries
+
+# Builds the standalone `virgil` binary on each supported platform and attaches
+# it to the GitHub Release. The VS Code extension downloads these on first
+# activation so users don't need Python / pipx installed.
+#
+# Triggered by the same `release: published` event as publish-cli.yml, so a
+# single release pushes both the PyPI package and the platform binaries.
+#
+# Outputs (attached to the Release as assets):
+#   virgil-macos-arm64
+#   virgil-macos-x86_64
+#   virgil-linux-x86_64
+#   virgil-windows-x86_64.exe
+#
+# Linux arm64 is deferred — add a runner (or QEMU step) when the demand is real.
+# macOS notarization is deferred too; users on first launch will need
+# `xattr -d com.apple.quarantine <path>` (documented in apps/cli/README.md).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach binaries to (e.g. v0.3.2). Leave blank for a dry-run."
+        type: string
+        required: false
+
+permissions:
+  contents: write  # required to upload assets to the Release
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macos-arm64
+            artifact: virgil-macos-arm64
+          - os: macos-13
+            label: macos-x86_64
+            artifact: virgil-macos-x86_64
+          - os: ubuntu-latest
+            label: linux-x86_64
+            artifact: virgil-linux-x86_64
+          - os: windows-latest
+            label: windows-x86_64
+            artifact: virgil-windows-x86_64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CLI + build extras
+        working-directory: apps/cli
+        run: python -m pip install -e ".[build]"
+
+      - name: Build binary
+        working-directory: apps/cli
+        run: python build.py --clean
+
+      # Rename `dist/virgil(.exe)` → the per-platform asset name, mirroring the
+      # download URL the extension expects.
+      - name: Rename artifact (Unix)
+        if: runner.os != 'Windows'
+        working-directory: apps/cli
+        run: mv dist/virgil dist/${{ matrix.artifact }}
+
+      - name: Rename artifact (Windows)
+        if: runner.os == 'Windows'
+        working-directory: apps/cli
+        shell: pwsh
+        run: Move-Item dist/virgil.exe dist/${{ matrix.artifact }}
+
+      - name: Smoke-test binary (Unix)
+        if: runner.os != 'Windows'
+        working-directory: apps/cli
+        run: |
+          chmod +x dist/${{ matrix.artifact }}
+          dist/${{ matrix.artifact }} --version
+
+      - name: Smoke-test binary (Windows)
+        if: runner.os == 'Windows'
+        working-directory: apps/cli
+        shell: pwsh
+        run: dist/${{ matrix.artifact }} --version
+
+      # Always upload as a workflow artifact so workflow_dispatch dry-runs
+      # can be inspected without a real release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: apps/cli/dist/${{ matrix.artifact }}
+          if-no-files-found: error
+
+      - name: Attach to Release
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/cli/dist/${{ matrix.artifact }}
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}

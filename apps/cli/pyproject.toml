@@ -52,6 +52,13 @@ dependencies = [
   "requests>=2.31",
 ]
 
+[project.optional-dependencies]
+# `pip install virgilhq[build]` pulls PyInstaller in for the binary build.
+# Kept out of the runtime install so `pipx install virgilhq` stays lean.
+build = [
+  "pyinstaller>=6.6",
+]
+
 [project.urls]
 Homepage = "https://virgilhq.app"
 Repository = "https://github.com/ayaanmaliksgithub/virgil"
