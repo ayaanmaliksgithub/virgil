@@ -1,26 +1,31 @@
 /**
  * Virgil VS Code extension — entrypoint.
  *
- * The extension is intentionally read-only against the Virgil API: it polls
- * the configured audit's findings and surfaces them as VS Code diagnostics
- * on the matching files + lines. No write paths (suppression, baseline
- * management, etc.) — those live in the web UI.
+ * The extension is a thin UI host that drives the bundled `virgil` CLI. The
+ * CLI talks to the Virgil API; the extension talks only to the CLI over
+ * stdio. This is the same architecture the Claude Code and Codex extensions
+ * use: keep one mature binary as the source of truth and let the editor
+ * surface its results.
  *
- * Lifecycle:
- *   1. `activate()` registers commands + the status-bar item, then triggers
- *      an initial refresh against the audit ID stored in workspace state.
- *   2. `virgil.setAudit` lets the user paste an audit UUID; the extension
- *      validates by GETing the audit, then stores the ID per-workspace.
- *   3. `virgil.refresh` re-fetches findings and rebuilds the diagnostic
- *      collection. Bound to a 5-minute auto-refresh while VS Code is open.
+ * Workflows:
+ *   - `Virgil: Scan workspace` — runs `virgil scan . --no-wait`, stashes the
+ *     returned audit id in workspace state, kicks off a refresh loop.
+ *   - `Virgil: Track an existing audit ID` — pin an audit you already
+ *     produced from the terminal or web UI; the extension surfaces its
+ *     findings inline.
+ *   - Inline diagnostics auto-refresh every 5 minutes (or on manual
+ *     `Virgil: Refresh diagnostics`), so findings appear as the audit
+ *     completes server-side.
  *
- * Audit-ID auto-discovery from `git remote` is on the roadmap but explicitly
- * out of scope for v0.1 — the user pastes the audit ID once per workspace.
+ * The first time any command runs the CLI, the extension downloads the
+ * matching binary for the user's OS/arch from the Virgil GitHub Release.
+ * No Python or pipx required.
  */
 import * as vscode from "vscode";
-import { ApiError, ApiUnreachable, getAudit, listFindings } from "./api";
+import { runVirgil, scan, listFindings, getAudit, CliError } from "./cli";
+import { BinaryError } from "./binary";
 import { buildDiagnostics } from "./diagnostics";
-import type { Severity } from "./types";
+import type { Severity, Finding } from "./types";
 
 const STATE_AUDIT_ID = "virgil.auditId";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -44,25 +49,20 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(statusBar);
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("virgil.scan", () => scanWorkspace(context)),
     vscode.commands.registerCommand("virgil.setAudit", () => setAudit(context)),
     vscode.commands.registerCommand("virgil.clearAudit", () => clearAudit(context)),
     vscode.commands.registerCommand("virgil.refresh", () => refresh(context)),
     vscode.commands.registerCommand("virgil.openInBrowser", () => openInBrowser(context)),
   );
 
-  // Auto-refresh while VS Code is open. Light cadence; the diagnostics only
-  // change when a new audit completes.
   refreshTimer = setInterval(() => {
     void refresh(context, { silent: true });
   }, REFRESH_INTERVAL_MS);
   context.subscriptions.push({ dispose: () => clearInterval(refreshTimer!) });
 
-  // Initial paint on activation. Silent so no popup on a workspace that
-  // hasn't been configured yet.
   void refresh(context, { silent: true });
 
-  // React to settings changes (API URL, minSeverity, …) without requiring a
-  // reload.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("virgil")) {
@@ -80,11 +80,39 @@ export function deactivate(): void {
 
 // ---------- commands ----------
 
+async function scanWorkspace(context: vscode.ExtensionContext): Promise<void> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    void vscode.window.showWarningMessage(
+      "Virgil: open a folder before running a scan.",
+    );
+    return;
+  }
+  try {
+    const result = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Virgil: submitting scan",
+        cancellable: false,
+      },
+      () => scan(context, folder.uri.fsPath),
+    );
+    const auditId = result.audit.id;
+    await context.workspaceState.update(STATE_AUDIT_ID, auditId);
+    void vscode.window.showInformationMessage(
+      `Virgil: tracking audit ${auditId.slice(0, 8)} — diagnostics will refresh as it completes.`,
+    );
+    void refresh(context, { silent: true });
+  } catch (e) {
+    void vscode.window.showErrorMessage(`Virgil: ${describeError(e)}`);
+  }
+}
+
 async function setAudit(context: vscode.ExtensionContext): Promise<void> {
   const current = context.workspaceState.get<string>(STATE_AUDIT_ID, "");
   const id = await vscode.window.showInputBox({
     title: "Virgil audit ID",
-    prompt: "Paste an audit UUID. Get it from the web UI or `virgil scan .` output.",
+    prompt: "Paste an audit UUID from `virgil scan` output or the web UI.",
     value: current,
     validateInput: (v) =>
       v && !/^[0-9a-fA-F-]{8,}$/.test(v.trim())
@@ -99,19 +127,15 @@ async function setAudit(context: vscode.ExtensionContext): Promise<void> {
     statusBar.text = "$(shield) virgil: cleared";
     return;
   }
-
-  // Validate by fetching — gives the user immediate feedback that the API is
-  // reachable AND the audit exists.
-  const base = config().get<string>("api", "http://localhost:8000");
   try {
-    const audit = await getAudit(base, trimmed);
+    const audit = await getAudit(context, trimmed);
     await context.workspaceState.update(STATE_AUDIT_ID, audit.id);
-    vscode.window.showInformationMessage(
+    void vscode.window.showInformationMessage(
       `Virgil: tracking audit ${audit.id.slice(0, 8)} (${audit.state}) for this workspace`,
     );
     await refresh(context);
   } catch (e) {
-    vscode.window.showErrorMessage(`Virgil: ${describeError(e)}`);
+    void vscode.window.showErrorMessage(`Virgil: ${describeError(e)}`);
   }
 }
 
@@ -119,7 +143,7 @@ async function clearAudit(context: vscode.ExtensionContext): Promise<void> {
   await context.workspaceState.update(STATE_AUDIT_ID, undefined);
   diagnosticCollection.clear();
   statusBar.text = "$(shield) virgil: cleared";
-  statusBar.tooltip = "Run 'Virgil: Set Audit ID' to start surfacing diagnostics";
+  statusBar.tooltip = "Run 'Virgil: Scan workspace' to start a new audit";
 }
 
 async function refresh(
@@ -129,18 +153,18 @@ async function refresh(
   const auditId = context.workspaceState.get<string>(STATE_AUDIT_ID, "");
   if (!auditId) {
     statusBar.text = "$(shield) virgil: no audit";
-    statusBar.tooltip = "Run 'Virgil: Set Audit ID' to start surfacing diagnostics";
+    statusBar.tooltip =
+      "Run 'Virgil: Scan workspace' (or 'Virgil: Track an existing audit ID')";
     diagnosticCollection.clear();
     return;
   }
 
-  const cfg = config();
-  const base = cfg.get<string>("api", "http://localhost:8000");
+  const cfg = vscode.workspace.getConfiguration("virgil");
   const includeSuppressed = cfg.get<boolean>("includeSuppressed", false);
   const minSeverity = cfg.get<Severity>("minSeverity", "Low");
 
   try {
-    const findings = await listFindings(base, auditId, { includeSuppressed });
+    const findings = await listFindings(context, auditId, { includeSuppressed });
     const folders = vscode.workspace.workspaceFolders ?? [];
     const grouped = buildDiagnostics(findings, { minSeverity, folders });
 
@@ -151,12 +175,14 @@ async function refresh(
 
     const counts = severityCounts(findings);
     statusBar.text = renderStatus(counts, auditId);
-    statusBar.tooltip = renderTooltip(counts, auditId, base);
+    statusBar.tooltip = renderTooltip(counts, auditId);
   } catch (e) {
-    statusBar.text = "$(alert) virgil: unreachable";
+    statusBar.text = isUnreachable(e)
+      ? "$(alert) virgil: API unreachable"
+      : "$(alert) virgil: error";
     statusBar.tooltip = describeError(e);
     if (!opts.silent) {
-      vscode.window.showWarningMessage(`Virgil: ${describeError(e)}`);
+      void vscode.window.showWarningMessage(`Virgil: ${describeError(e)}`);
     }
   }
 }
@@ -164,19 +190,29 @@ async function refresh(
 async function openInBrowser(context: vscode.ExtensionContext): Promise<void> {
   const auditId = context.workspaceState.get<string>(STATE_AUDIT_ID, "");
   if (!auditId) {
-    void vscode.commands.executeCommand("virgil.setAudit");
+    void vscode.commands.executeCommand("virgil.scan");
     return;
   }
-  const cfg = config();
-  const webUrl = cfg.get<string>("webUrl", "http://localhost:3000").replace(/\/+$/, "");
-  await vscode.env.openExternal(vscode.Uri.parse(`${webUrl}/audits/${auditId}`));
+  try {
+    // Delegate URL building to the CLI so the web_url config lives in one
+    // place (the CLI's config file / env vars).
+    const result = await runVirgil<never>(context, [
+      "open",
+      auditId,
+      "--print",
+    ]);
+    const url = result.stdout.trim();
+    if (!url) {
+      void vscode.window.showErrorMessage("Virgil: could not determine the web URL");
+      return;
+    }
+    await vscode.env.openExternal(vscode.Uri.parse(url));
+  } catch (e) {
+    void vscode.window.showErrorMessage(`Virgil: ${describeError(e)}`);
+  }
 }
 
 // ---------- helpers ----------
-
-function config(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration("virgil");
-}
 
 interface Counts {
   critical: number;
@@ -188,7 +224,7 @@ interface Counts {
   kev: number;
 }
 
-function severityCounts(findings: { severity: Severity; kev?: boolean; suppressed?: boolean }[]): Counts {
+function severityCounts(findings: Finding[]): Counts {
   const c: Counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0, kev: 0 };
   for (const f of findings) {
     if (f.suppressed) continue;
@@ -210,7 +246,6 @@ function renderStatus(c: Counts, auditId: string): string {
   if (c.total === 0) {
     return `$(shield) virgil: clean · ${idPrefix}`;
   }
-  // Compact summary; full breakdown lives in the tooltip.
   const parts: string[] = [];
   if (c.critical) parts.push(`${c.critical}C`);
   if (c.high) parts.push(`${c.high}H`);
@@ -220,8 +255,8 @@ function renderStatus(c: Counts, auditId: string): string {
   return `$(shield) virgil: ${parts.join(" ")} · ${idPrefix}`;
 }
 
-function renderTooltip(c: Counts, auditId: string, base: string): string {
-  const lines = [
+function renderTooltip(c: Counts, auditId: string): string {
+  return [
     `Virgil audit ${auditId}`,
     ``,
     `Critical: ${c.critical}`,
@@ -231,18 +266,32 @@ function renderTooltip(c: Counts, auditId: string, base: string): string {
     `Info:     ${c.info}`,
     `KEV:      ${c.kev}`,
     ``,
-    `API: ${base}`,
     `Click to open the audit in your browser.`,
-  ];
-  return lines.join("\n");
+  ].join("\n");
+}
+
+function isUnreachable(e: unknown): boolean {
+  // The CLI exits 3 when it can't reach the API. See `apps/cli/cli/main.py`.
+  return e instanceof CliError && e.exitCode === 3;
 }
 
 function describeError(e: unknown): string {
-  if (e instanceof ApiUnreachable) {
-    return "API unreachable — is `docker compose up` running?";
+  if (e instanceof BinaryError) {
+    if (e.kind === "unsupported") return e.message;
+    if (e.kind === "download") return `couldn't download the CLI binary: ${e.message}`;
+    return e.message;
   }
-  if (e instanceof ApiError) {
-    if (e.status === 404) return "audit not found at this API";
+  if (e instanceof CliError) {
+    if (e.exitCode === 3) {
+      return (
+        "API unreachable. Set the API URL with " +
+        "`virgil config set api_url=…` or start a local instance " +
+        "(`docker compose up`)."
+      );
+    }
+    if (e.exitCode === 2 && /not found/i.test(e.stderr)) {
+      return "audit not found at this API";
+    }
     return e.message;
   }
   return e instanceof Error ? e.message : String(e);

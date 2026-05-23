@@ -1,8 +1,8 @@
 {
   "name": "virgil",
   "displayName": "Virgil",
-  "description": "Inline security-audit annotations from a running Virgil instance. Findings appear as diagnostics on the lines the scanners flagged; the status bar shows the rollup at a glance.",
-  "version": "0.1.0",
+  "description": "Self-hosted security audit, in your editor. Run scans, surface findings as inline diagnostics, and triage from the command palette — powered by the bundled Virgil CLI (no Python required).",
+  "version": "0.2.0",
   "publisher": "ayaanmaliksgithub",
   "license": "Apache-2.0",
   "homepage": "https://virgilhq.app",
@@ -37,12 +37,16 @@
   "contributes": {
     "commands": [
       {
+        "command": "virgil.scan",
+        "title": "Virgil: Scan workspace"
+      },
+      {
         "command": "virgil.setAudit",
-        "title": "Virgil: Set Audit ID for this workspace"
+        "title": "Virgil: Track an existing audit ID for this workspace"
       },
       {
         "command": "virgil.clearAudit",
-        "title": "Virgil: Clear the configured Audit ID"
+        "title": "Virgil: Clear the tracked audit"
       },
       {
         "command": "virgil.refresh",
@@ -56,15 +60,10 @@
     "configuration": {
       "title": "Virgil",
       "properties": {
-        "virgil.api": {
+        "virgil.cliPath": {
           "type": "string",
-          "default": "http://localhost:8000",
-          "description": "Base URL of the Virgil API. Defaults to a local `docker compose up` instance."
-        },
-        "virgil.webUrl": {
-          "type": "string",
-          "default": "http://localhost:3000",
-          "description": "Base URL of the Virgil web UI (used by 'Open in browser')."
+          "default": "",
+          "description": "Optional. Absolute path to a `virgil` binary to use instead of the one the extension downloads. Useful when developing the CLI locally — point this at `apps/cli/dist/virgil`."
         },
         "virgil.minSeverity": {
           "type": "string",

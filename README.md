@@ -153,13 +153,15 @@ A full example with all inputs is in
 
 ## Read findings in your editor (VS Code)
 
-The VS Code extension at [apps/vscode/](apps/vscode/) reads findings
-from your running Virgil instance and surfaces them as native VS Code
+The VS Code extension at [apps/vscode/](apps/vscode/) bundles the
+`virgil` CLI as a single-file binary (downloaded on first activation —
+no Python or pipx required) and drives it from inside the editor. Run a
+scan from the command palette, get findings surfaced as native VS Code
 diagnostics — squiggles on the offending lines, a Problems-panel
 rollup, and a status-bar count (`virgil: 2C 7H 12M · c9b1d8a3`) that
 clicks through to the audit in your browser.
 
-Not on the Marketplace yet (v0.1). For now:
+Not on the Marketplace yet (v0.2). For now:
 
 ```bash
 cd apps/vscode
@@ -168,9 +170,11 @@ npm install && npm run compile
 # or open the folder in VS Code and run "Extensions: Install from VSIX…"
 ```
 
-Once installed, run **Virgil: Set Audit ID** (Cmd-Shift-P) and paste
-the UUID from `virgil scan .` output. The extension polls the API
-every 5 minutes; manual refresh is a command too. Read-only by design
+Once installed, run **Virgil: Scan workspace** (Cmd-Shift-P) — the
+extension submits the scan via the bundled CLI, pins the resulting
+audit ID, and refreshes diagnostics every 5 minutes. The API URL lives
+in the CLI's own config (`virgil config set api_url=…`), so the
+extension never needs DNS or hostnames of its own. Read-only by design
 — suppression and baseline management stay in the web UI.
 
 ## What works today

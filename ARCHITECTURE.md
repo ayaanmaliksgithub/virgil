@@ -972,19 +972,27 @@ follows is the short list that's on the active path.
 Same discipline as §17: one PR per item, with tests. Items below are
 ordered by leverage; later items can assume earlier ones are done.
 
-1. [~] **VS Code extension.** Initial release at `apps/vscode/`. Reads
-   findings for a workspace-configured audit ID and surfaces them as
-   VS Code diagnostics on the matching file + line range — severity
-   maps Critical/High → Error, Medium → Warning, Low → Information,
-   Informational → Hint. Status-bar rollup
+1. [~] **VS Code extension.** v0.2 at `apps/vscode/`. The extension is
+   a thin UI host that drives the bundled `virgil` CLI — same pattern
+   as the Claude Code / Codex extensions. On first activation it
+   downloads a per-platform PyInstaller binary
+   (`virgil-{macos,linux,windows}-{arm64,x86_64}`) attached to the
+   matching GitHub Release by `.github/workflows/cli-binaries.yml`,
+   caches it under `globalStorageUri`, and spawns it for every
+   command. End users never need Python or pipx.
+   Surfaces:`Virgil: Scan workspace` submits a scan against the open
+   folder and pins the resulting audit; findings render as VS Code
+   diagnostics (Critical/High → Error, Medium → Warning, Low →
+   Information, Informational → Hint); status-bar rollup
    (`virgil: 2C 7H 12M · c9b1d8a3`) clicks through to the audit in
-   the browser. Auto-refreshes every 5 minutes; manual refresh
-   command available. Settings: `virgil.api`, `virgil.webUrl`,
-   `virgil.minSeverity`, `virgil.includeSuppressed`. Deferred to a
-   follow-up: "explain this finding" chat sidebar (needs a webview),
-   audit-ID auto-discovery via the git remote, and code-action
-   "suppress this finding" prompt. Marketplace publish also a
-   follow-up.
+   the browser. Auto-refresh every 5 minutes; manual refresh too.
+   Settings: `virgil.cliPath` (dev override), `virgil.minSeverity`,
+   `virgil.includeSuppressed`. Backend addressing lives in the CLI's
+   config, so the extension itself never holds an API URL.
+   Deferred: sidebar webview (triage panel, ranked clusters with
+   jump-to-file, grounded chat), code-action "explain this finding",
+   audit-ID auto-discovery via the git remote, macOS notarization,
+   Marketplace publish.
 2. [x] **GitHub Action** (no GitHub App). Composite action at the
    repo root (`action.yml`); other repos use it with
    `uses: ayaanmaliksgithub/virgil@v0.1.0`. Spins up the compose stack

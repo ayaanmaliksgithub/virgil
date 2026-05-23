@@ -1,10 +1,10 @@
 /**
- * Subset of the Virgil API types the extension cares about.
+ * Subset of the Virgil API shape that crosses the CLI ↔ extension boundary.
  *
- * Kept narrow + duplicated rather than importing from the web app — the
- * extension is its own publishable artifact and shouldn't carry a path
- * dependency on `apps/web`. The types here only need the fields the
- * diagnostic mapper reads.
+ * The CLI emits these as JSON (see `apps/cli/cli/main.py` — every `--json`
+ * subcommand passes the API's response through verbatim). Kept narrow and
+ * duplicated here rather than imported from `apps/web` so the extension stays
+ * an independent publishable artifact.
  */
 
 export type Severity =
@@ -42,14 +42,4 @@ export interface Finding {
   reachable?: boolean | null;
   suppressed?: boolean;
   suppression_reason?: string | null;
-}
-
-export interface Audit {
-  id: string;
-  source_kind: "url" | "zip";
-  source_ref: string;
-  state: "pending" | "running" | "succeeded" | "failed";
-  phase: string;
-  created_at: string;
-  finished_at?: string | null;
 }

@@ -17,7 +17,6 @@
  *      Warning, Low → Information, Informational → Hint. Same intent as the
  *      SARIF emitter but VS Code has a narrower 4-level enum.
  */
-import * as path from "node:path";
 import * as vscode from "vscode";
 import type { Finding, Severity } from "./types";
 
@@ -165,6 +164,3 @@ function ruleCode(f: Finding): vscode.Diagnostic["code"] {
   return undefined;
 }
 
-// `path` import kept reserved for future "resolve against package.json
-// location" heuristics; unused-import lint is silenced by referencing it.
-void path;
