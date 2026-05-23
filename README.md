@@ -177,46 +177,7 @@ in the CLI's own config (`virgil config set api_url=…`), so the
 extension never needs DNS or hostnames of its own. Read-only by design
 — suppression and baseline management stay in the web UI.
 
-## What works today
 
-Honest status: this is alpha-grade. The analysis engine is solid; the
-distribution surface is still landing. Tracker is in
-[ARCHITECTURE.md §16](ARCHITECTURE.md#16-build-status--deviations).
-
-| Working | Notes |
-|---|---|
-| Public GitHub + ZIP intake | Private repos via paste-a-PAT (OAuth flow not yet) |
-| Semgrep, Trivy, Gitleaks, opt-in CodeQL | Inside `--network=none --read-only --cap-drop=ALL` sandboxes |
-| Per-finding LLM enrichment + executive narrative | Grounded in code context; safety-validated |
-| Findings ledger + clustering + fix-the-helper | Web + CLI |
-| LLM-ranked priority queue | Deterministic fallback when no LLM key |
-| Reachability filter | Python, JS/TS, Go, Ruby, Java/Kotlin |
-| Ask-the-Auditor chat | Streaming, grounded in stored findings + code |
-| Suppressions + baseline diff | Per-repo, survives re-scans |
-| PR-mode (base_sha → head_sha) | Filters findings to changed lines |
-| Reports | JSON / Markdown / PDF / SARIF / CSV / XLSX |
-| Compliance mapping | SOC2 / PCI-DSS / HIPAA / ISO27001 (best-effort, coarse) |
-| Threat-intel (EPSS + CISA KEV) | Refreshed nightly |
-| Outbound webhook on `audit.completed` | HMAC-signed |
-
-## No-LLM mode
-
-You do not need an Anthropic or OpenAI key to run the project. With
-`LLM_PROVIDER=null` (or both keys empty), the audit pipeline:
-
-- Skips per-finding LLM enrichment (you keep raw scanner output).
-- Replaces the executive narrative with a deterministic severity-count
-  summary.
-- Falls back the **priority queue** to a deterministic ranker
-  (severity × KEV × instance count × category) so you still get a
-  "fix this week" view.
-- Disables the ask-the-auditor chat (the chat refuses with a clear
-  message; everything else works).
-
-The clustering, reachability filter, fix-the-helper hints, suppressions,
-baseline diff, PR-mode, compliance mapping, threat-intel, and all report
-exports are **completely deterministic** — they run identically whether
-or not an LLM provider is configured.
 
 ## Privacy
 
