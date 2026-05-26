@@ -4,12 +4,19 @@ Thin wrapper over `requests`. Centralizes the base URL + error handling so
 the command modules stay readable. Does NOT carry retry logic — a CLI
 session is interactive, and silent retries on top of `requests` calls
 hide signal a user wants to see (network down, server hung).
+
+One exception: if the saved api_url points at localhost and that's
+unreachable, we fall back to the hosted default once per process and
+warn on stderr. Keeps `pipx install virgilhq && virgil scan` working
+for users with stale dev configs without clobbering their saved URL.
 """
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 from typing import Iterator
+from urllib.parse import urlparse
 
 import requests
 
@@ -18,6 +25,9 @@ from cli import config
 
 HTTP_TIMEOUT = 30
 CHAT_TIMEOUT = 120  # LLM round-trips can sit well past the default.
+
+_LOCALISH_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+_runtime_base_override: str | None = None
 
 
 class ApiError(RuntimeError):
@@ -32,7 +42,35 @@ class ApiUnreachable(RuntimeError):
     `docker compose up` vs. "check API logs"."""
 
 
+def _is_localish(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host in _LOCALISH_HOSTS or host.endswith(".local") or host.endswith(".lan")
+
+
+def _maybe_fall_back_to_hosted() -> bool:
+    """Switch this process to the hosted default if the saved api_url is a
+    stale localhost. One-shot: never fires twice in the same process."""
+    global _runtime_base_override
+    if _runtime_base_override is not None:
+        return False
+    current = config.api_url()
+    if not _is_localish(current):
+        return False
+    if current.rstrip("/") == config.DEFAULT_API_URL.rstrip("/"):
+        return False
+    _runtime_base_override = config.DEFAULT_API_URL
+    print(
+        f"note: saved api_url {current} unreachable — using hosted default "
+        f"{config.DEFAULT_API_URL} for this run "
+        f"(run `virgil config unset api_url` to make it permanent)",
+        file=sys.stderr,
+    )
+    return True
+
+
 def _base_url() -> str:
+    if _runtime_base_override is not None:
+        return _runtime_base_override.rstrip("/")
     return config.api_url().rstrip("/")
 
 
@@ -42,6 +80,8 @@ def _request(method: str, path: str, **kwargs) -> requests.Response:
     try:
         res = requests.request(method, url, **kwargs)
     except requests.exceptions.ConnectionError as e:
+        if _maybe_fall_back_to_hosted():
+            return _request(method, path, **kwargs)
         raise ApiUnreachable(str(e)) from e
     except requests.exceptions.Timeout as e:
         raise ApiUnreachable(f"timeout after {HTTP_TIMEOUT}s") from e
@@ -111,35 +151,41 @@ def post_chat_stream(audit_id: str, message: str, *, session_id: str | None = No
     body: dict = {"message": message}
     if session_id:
         body["session_id"] = session_id
-    url = _base_url() + f"/v1/audits/{audit_id}/chat/stream"
     try:
-        with requests.post(url, json=body, stream=True, timeout=CHAT_TIMEOUT) as res:
-            if not res.ok:
-                raise ApiError(res.status_code, res.text[:500])
-            event = "message"
-            data_lines: list[str] = []
-            for raw in res.iter_lines(decode_unicode=True):
-                if raw is None:
-                    continue
-                if raw == "":
-                    if data_lines:
-                        import json as _json
-                        joined = "\n".join(data_lines)
-                        try:
-                            payload = _json.loads(joined)
-                        except _json.JSONDecodeError:
-                            payload = {"raw": joined}
-                        yield {"event": event, "data": payload}
-                    event, data_lines = "message", []
-                    continue
-                if raw.startswith(":"):
-                    continue
-                if raw.startswith("event:"):
-                    event = raw[6:].strip()
-                elif raw.startswith("data:"):
-                    data_lines.append(raw[5:].lstrip(" "))
+        res_ctx = requests.post(
+            _base_url() + f"/v1/audits/{audit_id}/chat/stream",
+            json=body, stream=True, timeout=CHAT_TIMEOUT,
+        )
     except requests.exceptions.ConnectionError as e:
+        if _maybe_fall_back_to_hosted():
+            yield from post_chat_stream(audit_id, message, session_id=session_id)
+            return
         raise ApiUnreachable(str(e)) from e
+    with res_ctx as res:
+        if not res.ok:
+            raise ApiError(res.status_code, res.text[:500])
+        event = "message"
+        data_lines: list[str] = []
+        for raw in res.iter_lines(decode_unicode=True):
+            if raw is None:
+                continue
+            if raw == "":
+                if data_lines:
+                    import json as _json
+                    joined = "\n".join(data_lines)
+                    try:
+                        payload = _json.loads(joined)
+                    except _json.JSONDecodeError:
+                        payload = {"raw": joined}
+                    yield {"event": event, "data": payload}
+                event, data_lines = "message", []
+                continue
+            if raw.startswith(":"):
+                continue
+            if raw.startswith("event:"):
+                event = raw[6:].strip()
+            elif raw.startswith("data:"):
+                data_lines.append(raw[5:].lstrip(" "))
 
 
 def get_chat_session(audit_id: str, session_id: str) -> dict:
@@ -160,29 +206,35 @@ def stream_events(audit_id: str) -> Iterator[dict]:
 
     Each event looks like `{"event": "log"|"done", "phase": str, "message": str}`.
     """
-    url = _base_url() + f"/v1/audits/{audit_id}/events"
     try:
-        with requests.get(url, stream=True, timeout=None) as res:
-            if not res.ok:
-                raise ApiError(res.status_code, res.text[:500])
-            event = "message"
-            data_lines: list[str] = []
-            for raw in res.iter_lines(decode_unicode=True):
-                if raw is None:
-                    continue
-                if raw == "":
-                    if data_lines:
-                        yield {"event": event, "data": "\n".join(data_lines)}
-                    event, data_lines = "message", []
-                    continue
-                if raw.startswith(":"):
-                    continue
-                if raw.startswith("event:"):
-                    event = raw[6:].strip()
-                elif raw.startswith("data:"):
-                    data_lines.append(raw[5:].lstrip(" "))
+        res_ctx = requests.get(
+            _base_url() + f"/v1/audits/{audit_id}/events",
+            stream=True, timeout=None,
+        )
     except requests.exceptions.ConnectionError as e:
+        if _maybe_fall_back_to_hosted():
+            yield from stream_events(audit_id)
+            return
         raise ApiUnreachable(str(e)) from e
+    with res_ctx as res:
+        if not res.ok:
+            raise ApiError(res.status_code, res.text[:500])
+        event = "message"
+        data_lines: list[str] = []
+        for raw in res.iter_lines(decode_unicode=True):
+            if raw is None:
+                continue
+            if raw == "":
+                if data_lines:
+                    yield {"event": event, "data": "\n".join(data_lines)}
+                event, data_lines = "message", []
+                continue
+            if raw.startswith(":"):
+                continue
+            if raw.startswith("event:"):
+                event = raw[6:].strip()
+            elif raw.startswith("data:"):
+                data_lines.append(raw[5:].lstrip(" "))
 
 
 def poll_until_terminal(audit_id: str, *, interval: float = 1.5, max_seconds: float = 1800) -> dict:
