@@ -158,7 +158,7 @@ def test_scan_rejects_path_and_url_together(monkeypatch, tmp_path: Path):
     runner = CliRunner()
     result = runner.invoke(cli, ["scan", str(tmp_path), "--url", "https://github.com/x/y"])
     assert result.exit_code != 0
-    assert "PATH or --url" in result.output
+    assert "TARGET or --url" in result.output
 
 
 def test_scan_unreachable_exits_three(monkeypatch, tmp_path: Path):
