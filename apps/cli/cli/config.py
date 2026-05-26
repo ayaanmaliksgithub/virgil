@@ -14,8 +14,8 @@ from typing import Any
 CONFIG_DIR = Path(os.environ.get("VIRGIL_CONFIG_DIR", str(Path.home() / ".config" / "virgil")))
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
-DEFAULT_API_URL = "http://localhost:8000"
-DEFAULT_WEB_URL = "http://localhost:3000"
+DEFAULT_API_URL = "https://virgilhq.app/api"
+DEFAULT_WEB_URL = "https://virgilhq.app"
 DEFAULT_FAIL_ON = "critical"
 DEFAULT_POST_SCAN_VIEW = "triage"
 

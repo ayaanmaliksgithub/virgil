@@ -2,9 +2,9 @@
 
 Thin terminal client for Virgil — the security audit platform. Submits
 scans, streams audit progress, prints findings, fetches reports — talks
-to a running API instance (default `http://localhost:8000`). The CLI
+to a running API instance (default `https://virgilhq.app/api`). The CLI
 never runs scanners itself; that work belongs in the sandboxed worker.
 
 Distribution: `pip install virgil` (or via `pipx`).
 """
-__version__ = "0.3.1"
+__version__ = "0.4.0"

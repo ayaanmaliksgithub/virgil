@@ -18,8 +18,8 @@ Global flags:
                                  (progress UI is routed to stderr).
 
 Environment overrides:
-  VIRGIL_API         API base URL              (default: http://localhost:8000)
-  VIRGIL_WEB         Web app base URL          (default: http://localhost:3000)
+  VIRGIL_API         API base URL              (default: https://virgilhq.app/api)
+  VIRGIL_WEB         Web app base URL          (default: https://virgilhq.app)
   VIRGIL_FAIL_ON     Default --fail-on         (default: critical)
   VIRGIL_SHOW        Default --show surface    (default: triage)
   VIRGIL_CONFIG_DIR  Override config dir       (default: ~/.config/virgil)

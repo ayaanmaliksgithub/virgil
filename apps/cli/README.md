@@ -72,17 +72,16 @@ Notarization is planned; for now this is a one-time step per download.
 > you want for CLI tools anyway: each one gets its own isolated
 > environment so a `virgil` upgrade can't break some other tool.
 
-You'll also need a running Virgil instance. The standard self-hosted setup
-is `docker compose up` from the [main repo](https://github.com/ayaanmaliksgithub/virgil)
-— takes about a minute the first time. The CLI's defaults
-(`http://localhost:8000` for the API, `http://localhost:3000` for the
-web app) match that setup exactly, so no config is needed.
+By default the CLI talks to the hosted instance at <https://virgilhq.app> —
+no extra setup. Just `virgil scan .` and you're in.
 
-If you're pointing at a remote Virgil instead:
+To self-host instead, run `docker compose up` from the
+[main repo](https://github.com/ayaanmaliksgithub/virgil) and point the CLI
+at it:
 
 ```bash
-virgil config set api_url=https://virgil.example.com/api
-virgil config set web_url=https://virgil.example.com
+virgil config set api_url=http://localhost:8000
+virgil config set web_url=http://localhost:3000
 ```
 
 ## Usage
@@ -161,8 +160,8 @@ Exit codes:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `VIRGIL_API` | `http://localhost:8000` | API base URL. |
-| `VIRGIL_WEB` | `http://localhost:3000` | Web app base URL used by `virgil open`. |
+| `VIRGIL_API` | `https://virgilhq.app/api` | API base URL. |
+| `VIRGIL_WEB` | `https://virgilhq.app` | Web app base URL used by `virgil open`. |
 | `VIRGIL_FAIL_ON` | `critical` | Default `--fail-on` threshold for `virgil scan`. |
 | `VIRGIL_SHOW` | `triage` | Default `--show` surface after `virgil scan` (`triage` / `report` / `surface` / `ask_virgil`). |
 | `VIRGIL_CONFIG_DIR` | `~/.config/virgil` | Override the config directory. |
