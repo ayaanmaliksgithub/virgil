@@ -1,8 +1,8 @@
 """Build a standalone `virgil` binary with PyInstaller.
 
 Usage:
-    python build.py            # builds dist/virgil (or dist/virgil.exe)
-    python build.py --clean    # forwarded to PyInstaller
+    python build_binary.py            # builds dist/virgil (or dist/virgil.exe)
+    python build_binary.py --clean    # forwarded to PyInstaller
 
 Run from `apps/cli/` so PyInstaller resolves `cli/main.py` correctly. The
 resulting binary is self-contained: it bundles the Python interpreter and
@@ -27,7 +27,7 @@ def main() -> int:
         return 2
 
     # Invoke PyInstaller as a module under the *current* interpreter — that
-    # way `path/to/venv/bin/python build.py` works without needing the venv's
+    # way `path/to/venv/bin/python build_binary.py` works without needing the venv's
     # bin dir on PATH. CI uses the same code path.
     if importlib.util.find_spec("PyInstaller") is None:
         print(

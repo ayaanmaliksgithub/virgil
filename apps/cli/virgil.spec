@@ -2,7 +2,7 @@
 #
 # Produces a single-file binary that bundles the Python runtime + every
 # dependency, so end users can run `virgil` without installing Python or pipx.
-# Built by `python build.py` locally and by `.github/workflows/cli-binaries.yml`
+# Built by `python build_binary.py` locally and by `.github/workflows/cli-binaries.yml`
 # in CI for each supported platform.
 #
 # Hidden imports: PyInstaller's static analysis catches direct `import` statements,

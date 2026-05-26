@@ -64,7 +64,7 @@ jobs:
 
       - name: Build binary
         working-directory: apps/cli
-        run: python build.py --clean
+        run: python build_binary.py --clean
 
       # Rename `dist/virgil(.exe)` → the per-platform asset name, mirroring the
       # download URL the extension expects.
