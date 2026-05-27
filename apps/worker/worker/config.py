@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     llm_provider: str = "anthropic"
     llm_model: str = "claude-opus-4-7"
     llm_max_tokens_per_audit: int = 200_000
+    # Hard global cap on Anthropic spend per UTC day. Once exceeded, every
+    # provider call short-circuits to {} (same as the post-error circuit
+    # breaker). Counter is per-day in Redis under virgil:llm:spend:YYYY-MM-DD.
+    llm_daily_budget_usd: float = 10.0
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
 

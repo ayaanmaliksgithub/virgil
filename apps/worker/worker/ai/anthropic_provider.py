@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import logging
 import threading
@@ -7,6 +8,7 @@ import time
 from typing import Any, Iterator
 
 import anthropic
+import redis as _redis_mod
 
 from worker.config import get_settings
 
@@ -23,6 +25,85 @@ log = logging.getLogger(__name__)
 # output", so the short-circuit degrades cleanly to scanner-only audits.
 _circuit_lock = threading.Lock()
 _circuit_open_until: float = 0.0  # epoch seconds; 0 means closed (healthy)
+
+
+# Daily $ budget. Spend is tracked in Redis (key resets per UTC day) so that
+# the cap holds across all worker processes on the same broker. Pricing is
+# per-model; an unknown model gets the conservative default. Update the
+# table when Anthropic changes pricing.
+_MODEL_PRICES_USD_PER_M = {
+    "claude-opus-4-7":   (15.0, 75.0),
+    "claude-sonnet-4-6": ( 3.0, 15.0),
+    "claude-haiku-4-5":  ( 1.0,  5.0),
+}
+_DEFAULT_PRICES_USD_PER_M = (5.0, 25.0)
+
+_redis_lock = threading.Lock()
+_redis_client: _redis_mod.Redis | None = None
+# Once we observe over-budget, don't log it on every subsequent call.
+_budget_warned_for_day: str | None = None
+
+
+def _redis() -> _redis_mod.Redis:
+    global _redis_client
+    if _redis_client is None:
+        with _redis_lock:
+            if _redis_client is None:
+                _redis_client = _redis_mod.from_url(
+                    get_settings().redis_url, decode_responses=True,
+                )
+    return _redis_client
+
+
+def _today_key() -> str:
+    return "virgil:llm:spend:" + _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
+
+
+def _today_spend_usd() -> float:
+    try:
+        v = _redis().get(_today_key())
+        return float(v) if v else 0.0
+    except Exception as e:
+        log.warning("budget read failed (%s) — allowing call", e)
+        return 0.0
+
+
+def _add_spend_usd(amount: float) -> None:
+    if amount <= 0:
+        return
+    try:
+        key = _today_key()
+        r = _redis()
+        r.incrbyfloat(key, amount)
+        # 48h TTL gives us a buffer around the UTC day rollover; the key
+        # itself encodes the date so a stale value can never bleed.
+        r.expire(key, 48 * 3600)
+    except Exception as e:
+        log.warning("budget write failed (%s)", e)
+
+
+def _cost_usd(model: str, in_tokens: int, out_tokens: int) -> float:
+    p_in, p_out = _MODEL_PRICES_USD_PER_M.get(model, _DEFAULT_PRICES_USD_PER_M)
+    return (in_tokens * p_in + out_tokens * p_out) / 1_000_000.0
+
+
+def _over_budget() -> bool:
+    global _budget_warned_for_day
+    cap = get_settings().llm_daily_budget_usd
+    if cap <= 0:
+        return False  # 0 or negative disables the cap (escape hatch)
+    spent = _today_spend_usd()
+    if spent < cap:
+        return False
+    day = _today_key()
+    if _budget_warned_for_day != day:
+        _budget_warned_for_day = day
+        log.warning(
+            "daily LLM budget reached: $%.2f spent vs cap $%.2f; "
+            "further calls return empty until %s rolls over",
+            spent, cap, day,
+        )
+    return True
 
 # Substrings in the human-readable error message that indicate a 400 is
 # unrecoverable in the short term (typically: drained credit balance). The
@@ -83,7 +164,7 @@ class AnthropicProvider:
         max_tokens: int = 2048,
         temperature: float = 0.2,
     ) -> dict[str, Any]:
-        if _circuit_open():
+        if _circuit_open() or _over_budget():
             return {}
         # Anthropic doesn't have a native JSON-schema mode; we constrain via the
         # prompt and parse the first JSON object out of the response.
@@ -100,6 +181,11 @@ class AnthropicProvider:
             if _is_terminal_error(e):
                 _trip_circuit(str(e)[:160])
             raise
+        try:
+            u = msg.usage
+            _add_spend_usd(_cost_usd(self._model, u.input_tokens, u.output_tokens))
+        except Exception as e:
+            log.warning("usage accounting failed: %s", e)
         text = "".join(block.text for block in msg.content if getattr(block, "type", "") == "text")
         return _extract_json(text) or {}
 
@@ -118,7 +204,7 @@ class AnthropicProvider:
         responsible for incrementally extracting the `answer` field. We
         intentionally do not parse here so the provider stays a pure transport.
         """
-        if _circuit_open():
+        if _circuit_open() or _over_budget():
             return
         instruction = _schema_instruction(schema)
         try:
@@ -132,6 +218,12 @@ class AnthropicProvider:
                 for delta in stream.text_stream:
                     if delta:
                         yield delta
+                try:
+                    final = stream.get_final_message()
+                    u = final.usage
+                    _add_spend_usd(_cost_usd(self._model, u.input_tokens, u.output_tokens))
+                except Exception as e:
+                    log.warning("usage accounting failed: %s", e)
         except Exception as e:
             if _is_terminal_error(e):
                 _trip_circuit(str(e)[:160])
