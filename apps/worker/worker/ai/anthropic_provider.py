@@ -24,10 +24,13 @@ log = logging.getLogger(__name__)
 _circuit_lock = threading.Lock()
 _circuit_open_until: float = 0.0  # epoch seconds; 0 means closed (healthy)
 
-_TERMINAL_ERROR_MARKERS = (
-    "credit_balance_too_low",  # account credit drained — needs top-up
-    "permission_error",        # invalid / revoked API key
-    "rate_limit_error",        # 429 — give the limit a moment to reset
+# Substrings in the human-readable error message that indicate a 400 is
+# unrecoverable in the short term (typically: drained credit balance). The
+# Anthropic API doesn't include a machine-readable error code for this case
+# — just a prose message — so we match on the stable English phrase.
+_BAD_REQUEST_TERMINAL_PHRASES = (
+    "credit balance is too low",
+    "credit_balance_too_low",  # belt-and-braces in case the SDK ever surfaces the code
 )
 _CIRCUIT_COOLDOWN_SEC = 60.0
 
@@ -47,8 +50,20 @@ def _trip_circuit(reason: str) -> None:
 
 
 def _is_terminal_error(exc: BaseException) -> bool:
-    s = str(exc)
-    return any(m in s for m in _TERMINAL_ERROR_MARKERS)
+    # 401 (auth), 403 (permission), 429 (rate-limit) are unrecoverable within
+    # the cooldown window — give it a minute before trying again.
+    if isinstance(exc, (
+        anthropic.AuthenticationError,
+        anthropic.PermissionDeniedError,
+        anthropic.RateLimitError,
+    )):
+        return True
+    # 400 (bad request) covers many things; only trip on drained-credit, not
+    # on caller bugs (malformed request, prompt too long, etc.).
+    if isinstance(exc, anthropic.BadRequestError):
+        msg = str(getattr(exc, "message", "") or exc).lower()
+        return any(p in msg for p in _BAD_REQUEST_TERMINAL_PHRASES)
+    return False
 
 
 class AnthropicProvider:
