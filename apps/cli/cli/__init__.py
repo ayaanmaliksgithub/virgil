@@ -7,4 +7,4 @@ never runs scanners itself; that work belongs in the sandboxed worker.
 
 Distribution: `pip install virgil` (or via `pipx`).
 """
-__version__ = "0.4.1"
+__version__ = "0.4.2"

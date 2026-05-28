@@ -12,6 +12,7 @@ for users with stale dev configs without clobbering their saved URL.
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -204,7 +205,11 @@ def get_report(audit_id: str, *, view: str = "technical", format: str = "json") 
 def stream_events(audit_id: str) -> Iterator[dict]:
     """Yield decoded SSE event dicts until the stream ends.
 
-    Each event looks like `{"event": "log"|"done", "phase": str, "message": str}`.
+    Each yielded item is `{"event": "phase"|"log"|"done", "data": dict}` where
+    `data` is the JSON-decoded payload from the SSE frame. Typical shapes:
+      phase: {"phase": str, "state": str}
+      log:   {"ts": str, "phase": str, "level": str, "message": str}
+      done:  {} or terminal state info
     """
     try:
         res_ctx = requests.get(
@@ -221,12 +226,21 @@ def stream_events(audit_id: str) -> Iterator[dict]:
             raise ApiError(res.status_code, res.text[:500])
         event = "message"
         data_lines: list[str] = []
-        for raw in res.iter_lines(decode_unicode=True):
+        # chunk_size=1 forces per-byte yielding from the underlying socket so
+        # SSE events surface in real time. Default chunk_size buffers up to
+        # ~512 bytes; for SSE that means the spinner can sit on a stale phase
+        # for tens of seconds while the next event waits in the buffer.
+        for raw in res.iter_lines(decode_unicode=True, chunk_size=1):
             if raw is None:
                 continue
             if raw == "":
                 if data_lines:
-                    yield {"event": event, "data": "\n".join(data_lines)}
+                    joined = "\n".join(data_lines)
+                    try:
+                        payload = json.loads(joined)
+                    except json.JSONDecodeError:
+                        payload = {"raw": joined}
+                    yield {"event": event, "data": payload}
                 event, data_lines = "message", []
                 continue
             if raw.startswith(":"):

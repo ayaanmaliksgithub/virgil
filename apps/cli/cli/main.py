@@ -368,26 +368,38 @@ def scan(
 
 
 def _stream_progress(audit_id: str, ui: Console) -> None:
-    """Render a live spinner with the latest phase message until the stream
+    """Render a live spinner with the latest phase + message until the stream
     closes. Falls back to polling if SSE isn't available. `ui` lets the
     caller route the spinner to stderr (e.g. in --json mode).
+
+    The SSE stream yields dict payloads:
+      phase event: {"phase": str, "state": str}
+      log event:   {"ts": str, "phase": str, "level": str, "message": str}
+      done event:  terminal sentinel
+    We track the most recent phase + message and render `phase · message`.
     """
     spinner = Spinner("dots", text=Text("queued", style="dim"))
-    last_msg = "queued"
     last_phase = "queued"
+    last_msg = ""
     try:
         with Live(spinner, console=ui, refresh_per_second=10):
             for event in stream_events(audit_id):
-                data = event.get("data", "")
                 if event.get("event") == "done":
                     spinner.update(text=Text(f"done · {last_phase}", style="green"))
                     break
-                # The server emits `phase | message` style frames; we don't
-                # parse a fixed format — just show the latest line.
-                last_msg = data
-                if " · " in data:
-                    last_phase = data.split(" · ", 1)[0]
-                spinner.update(text=Text(f"{last_phase} · {last_msg[:80]}", style="yellow"))
+                data = event.get("data") or {}
+                if isinstance(data, dict):
+                    phase = data.get("phase")
+                    if phase:
+                        last_phase = phase
+                    msg = data.get("message")
+                    if msg:
+                        last_msg = msg
+                else:
+                    # Fallback for unparseable payloads — show raw.
+                    last_msg = str(data)
+                line = f"{last_phase} · {last_msg[:80]}" if last_msg else last_phase
+                spinner.update(text=Text(line, style="yellow"))
     except ApiUnreachable:
         ui.print("[dim]stream unavailable; polling…[/dim]")
         try:
